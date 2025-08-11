@@ -272,7 +272,18 @@ class BC_Customer_Pricing {
 	public function save_customer_number( $order_id ) {
 		if ( ! empty( $_POST['bc_customer_number'] ) ) {
 			$customer_number = sanitize_text_field( $_POST['bc_customer_number'] );
-			update_post_meta( $order_id, '_bc_customer_number', $customer_number );
+			
+			// Use HPOS-compatible method to save order meta
+			if ( class_exists( 'BC_HPOS_Utils' ) ) {
+				BC_HPOS_Utils::update_order_meta( $order_id, '_bc_customer_number', $customer_number );
+			} else {
+				// Fallback to traditional method
+				$order = wc_get_order( $order_id );
+				if ( $order ) {
+					$order->update_meta_data( '_bc_customer_number', $customer_number );
+					$order->save();
+				}
+			}
 			
 			// Also save to user meta if user is logged in
 			$order = wc_get_order( $order_id );

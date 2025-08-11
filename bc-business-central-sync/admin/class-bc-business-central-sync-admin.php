@@ -185,6 +185,49 @@ class BC_Business_Central_Sync_Admin {
 	}
 
 	/**
+	 * Display HPOS status information.
+	 *
+	 * @since 1.0.0
+	 */
+	public function display_hpos_status() {
+		if ( ! class_exists( 'BC_HPOS_Utils' ) ) {
+			return;
+		}
+
+		$hpos_status = BC_HPOS_Utils::get_hpos_status();
+		
+		echo '<div class="bc-hpos-status">';
+		echo '<h3>' . __( 'HPOS (High-Performance Order Storage) Status', 'bc-business-central-sync' ) . '</h3>';
+		
+		if ( $hpos_status['available'] ) {
+			if ( $hpos_status['enabled'] ) {
+				echo '<div class="notice notice-success">';
+				echo '<p><strong>' . __( 'HPOS is enabled and active!', 'bc-business-central-sync' ) . '</strong></p>';
+				echo '<p>' . __( 'Your store is using WooCommerce\'s new high-performance order storage system.', 'bc-business-central-sync' ) . '</p>';
+				
+				if ( $hpos_status['usage_percentage'] > 0 ) {
+					echo '<p>' . sprintf( __( 'HPOS Usage: %s%% of orders are using the new system.', 'bc-business-central-sync' ), $hpos_status['usage_percentage'] ) . '</p>';
+				}
+				
+				echo '</div>';
+			} else {
+				echo '<div class="notice notice-warning">';
+				echo '<p><strong>' . __( 'HPOS is available but not enabled.', 'bc-business-central-sync' ) . '</strong></p>';
+				echo '<p>' . __( 'Consider enabling HPOS for improved performance and scalability.', 'bc-business-central-sync' ) . '</p>';
+				echo '<p><a href="' . admin_url( 'admin.php?page=wc-settings&tab=advanced&section=features' ) . '" class="button button-primary">' . __( 'Enable HPOS', 'bc-business-central-sync' ) . '</a></p>';
+				echo '</div>';
+			}
+		} else {
+			echo '<div class="notice notice-info">';
+			echo '<p><strong>' . __( 'HPOS is not available.', 'bc-business-central-sync' ) . '</strong></p>';
+			echo '<p>' . __( 'HPOS requires WooCommerce 7.0 or higher. Your plugin will work with traditional order storage.', 'bc-business-central-sync' ) . '</p>';
+			echo '</div>';
+		}
+		
+		echo '</div>';
+	}
+
+	/**
 	 * AJAX handler for syncing products.
 	 *
 	 * @since    1.0.0

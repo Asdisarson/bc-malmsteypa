@@ -8,23 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **HPOS Compatibility**: Full support for WooCommerce High-Performance Order Storage
 - Enhanced error handling and logging
 - Improved database table structure with additional indexes
 - Better WooCommerce version compatibility checks
 - Enhanced security with improved nonce verification
 - Comprehensive integration documentation
+- HPOS utility functions for seamless order operations
+- Automatic HPOS detection and status monitoring
 
 ### Changed
 - Refactored plugin structure for better maintainability
 - Improved activation and deactivation processes
 - Enhanced database table creation with better error handling
 - Updated plugin metadata and branding
+- Order meta operations now use HPOS-compatible methods
+- Enhanced WooCommerce integration with HPOS support
 
 ### Fixed
 - Database table creation issues during activation
 - WooCommerce dependency checking
 - Plugin path constants usage
 - Error handling during plugin activation
+- Order meta operations compatibility with HPOS
 
 ## [1.0.0] - 2024-01-15
 

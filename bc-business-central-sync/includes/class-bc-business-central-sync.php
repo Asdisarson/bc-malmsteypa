@@ -69,6 +69,7 @@ class BC_Business_Central_Sync {
 		$this->define_public_hooks();
 		$this->define_cron_hooks();
 		$this->init_shortcodes();
+		$this->init_hpos_compatibility();
 	}
 
 	/**
@@ -165,6 +166,16 @@ class BC_Business_Central_Sync {
 		 */
 		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-woocommerce-manager.php';
 
+		/**
+		 * The class responsible for HPOS compatibility.
+		 */
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-hpos-compatibility.php';
+
+		/**
+		 * The class responsible for HPOS utility functions.
+		 */
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-hpos-utils.php';
+
 		$this->loader = new BC_Business_Central_Sync_Loader();
 	}
 
@@ -241,6 +252,16 @@ class BC_Business_Central_Sync {
 	public function init_shortcodes() {
 		$shortcodes = new BC_Shortcodes();
 		$shortcodes->init();
+	}
+
+	/**
+	 * Initialize HPOS compatibility.
+	 *
+	 * @since 1.0.0
+	 */
+	private function init_hpos_compatibility() {
+		// Initialize HPOS compatibility - the constructor handles all initialization
+		new BC_HPOS_Compatibility();
 	}
 
 	/**

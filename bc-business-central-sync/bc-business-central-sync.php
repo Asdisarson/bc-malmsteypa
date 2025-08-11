@@ -29,6 +29,7 @@
  * WC tested up to:   8.0
  * Network:           false
  * Update URI:        https://malmsteypa.is/business-central-sync
+ * HPOS Compatible:   true
  */
 
 // If this file is called directly, abort.

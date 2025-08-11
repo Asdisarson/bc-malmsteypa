@@ -17,6 +17,7 @@ A professional WordPress plugin that seamlessly integrates Microsoft Dynamics 36
 
 ### WooCommerce Integration
 - **Seamless Integration**: Fully compatible with WooCommerce 5.0+
+- **HPOS Compatible**: Full support for WooCommerce High-Performance Order Storage
 - **Admin Interface**: User-friendly admin interface for configuration
 - **Product Mapping**: Intelligent mapping of Business Central fields to WooCommerce
 - **Inventory Management**: Sync inventory levels and product status
@@ -131,6 +132,35 @@ The plugin includes a complete Dokobit phone authentication system:
    - Create companies through the admin interface
    - Link users to companies via phone numbers
    - Support for Iceland/Audkenni personal codes
+
+## ⚡ HPOS (High-Performance Order Storage) Compatibility
+
+The plugin is fully compatible with WooCommerce's HPOS system, providing improved performance and scalability:
+
+### HPOS Benefits
+- **Enhanced Performance**: Faster order queries and operations
+- **Better Scalability**: Handles high-volume stores more efficiently
+- **Improved Database**: Optimized order storage and retrieval
+- **Future-Proof**: Ready for WooCommerce's next-generation architecture
+
+### Compatibility Features
+- **Automatic Detection**: Automatically detects HPOS status
+- **Seamless Integration**: Works with both HPOS and traditional storage
+- **Optimized Queries**: Uses HPOS-optimized methods when available
+- **Fallback Support**: Maintains compatibility with older WooCommerce versions
+- **Admin Notices**: Shows HPOS status and recommendations
+
+### HPOS Requirements
+- WooCommerce 7.0 or higher
+- WordPress 5.0 or higher
+- MySQL 5.7 or higher (for optimal performance)
+
+### HPOS Status Monitoring
+The plugin provides real-time HPOS status information:
+- Current storage system in use
+- Migration progress percentage
+- Performance recommendations
+- Compatibility status
 
 ## 🎯 Usage
 

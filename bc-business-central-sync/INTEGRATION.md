@@ -72,6 +72,19 @@ do_action( 'bc_sync_pricelists_after', $sync_results );
 do_action( 'bc_pricelist_updated', $pricelist_id, $pricelist_data );
 ```
 
+#### HPOS (High-Performance Order Storage) Hooks
+
+```php
+// Order properties updated (HPOS specific)
+do_action( 'bc_order_updated_props', $order, $changes );
+
+// Order properties created (HPOS specific)
+do_action( 'bc_order_created_props', $order, $changes );
+
+// HPOS status changed
+do_action( 'bc_hpos_status_changed', $old_status, $new_status );
+```
+
 ### Filters
 
 #### Data Filtering
@@ -318,6 +331,48 @@ function my_custom_bc_shortcode( $atts ) {
     return $output;
 }
 add_shortcode( 'my_company_pricing', 'my_custom_bc_shortcode' );
+```
+
+#### HPOS-Compatible Order Operations
+
+```php
+// Working with orders in an HPOS-compatible way
+function my_hpos_compatible_order_function( $order_id ) {
+    if ( ! class_exists( 'BC_HPOS_Utils' ) ) {
+        return false;
+    }
+    
+    // Get order meta using HPOS utilities
+    $customer_number = BC_HPOS_Utils::get_order_meta( $order_id, '_bc_customer_number' );
+    
+    if ( $customer_number ) {
+        // Update order meta using HPOS utilities
+        BC_HPOS_Utils::update_order_meta( $order_id, '_bc_customer_status', 'verified' );
+        
+        // Get orders by meta value
+        $related_orders = BC_HPOS_Utils::get_orders_by_meta( '_bc_customer_number', $customer_number );
+        
+        // Batch update multiple orders
+        if ( ! empty( $related_orders ) ) {
+            BC_HPOS_Utils::batch_update_order_meta( $related_orders, '_bc_customer_verified', 'yes' );
+        }
+    }
+    
+    return true;
+}
+
+// Check HPOS status
+function check_my_store_hpos_status() {
+    if ( class_exists( 'BC_HPOS_Utils' ) ) {
+        $status = BC_HPOS_Utils::get_hpos_status();
+        
+        if ( $status['enabled'] ) {
+            echo 'HPOS is enabled with ' . $status['usage_percentage'] . '% usage.';
+        } else {
+            echo 'HPOS is available but not enabled.';
+        }
+    }
+}
 ```
 
 ### Custom AJAX Handlers
