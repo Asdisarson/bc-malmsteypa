@@ -19,8 +19,12 @@ class BC_Business_Central_Sync_Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
+		// Suppress output during activation
+		ob_start();
+		
 		// Check if WooCommerce is active
 		if ( ! class_exists( 'WooCommerce' ) ) {
+			ob_end_clean();
 			deactivate_plugins( plugin_basename( __FILE__ ) );
 			wp_die( 'This plugin requires WooCommerce to be installed and activated.' );
 		}
@@ -42,6 +46,9 @@ class BC_Business_Central_Sync_Activator {
 		) $charset_collate;";
 		
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+		
+		// Suppress database errors during table creation
+		$wpdb->suppress_errors = true;
 		dbDelta( $sql );
 		
 		// Create pricelists table
@@ -66,7 +73,7 @@ class BC_Business_Central_Sync_Activator {
 		$sql_pricelist_lines = "CREATE TABLE $pricelist_lines_table (
 			id mediumint(9) NOT NULL AUTO_INCREMENT,
 			bc_line_id varchar(255) NOT NULL,
-			pricelist_id mediumint(9) NOT NULL,
+			pricelist_id mediumint(9) unsigned,
 			item_id bigint(20) unsigned,
 			bc_item_id varchar(255) NOT NULL,
 			item_number varchar(100) NOT NULL,
@@ -92,7 +99,7 @@ class BC_Business_Central_Sync_Activator {
 			bc_customer_id varchar(255) NOT NULL,
 			customer_number varchar(100) NOT NULL,
 			customer_name varchar(255) NOT NULL,
-			pricelist_id mediumint(9),
+			pricelist_id mediumint(9) unsigned,
 			bc_pricelist_id varchar(255),
 			pricelist_code varchar(100),
 			last_sync datetime DEFAULT CURRENT_TIMESTAMP,
@@ -124,10 +131,10 @@ class BC_Business_Central_Sync_Activator {
 		$dokobit_user_phones_table = $wpdb->prefix . 'bc_dokobit_user_phones';
 		$sql_dokobit_user_phones = "CREATE TABLE $dokobit_user_phones_table (
 			id int(11) NOT NULL AUTO_INCREMENT,
-			user_id bigint(20) NOT NULL,
+			user_id bigint(20) unsigned NOT NULL,
 			phone_number varchar(50) NOT NULL,
 			personal_code varchar(20) DEFAULT NULL,
-			company_id int(11) NOT NULL,
+			company_id int(11) unsigned,
 			bc_customer_id varchar(255) DEFAULT NULL,
 			bc_customer_data longtext DEFAULT NULL,
 			last_sync datetime DEFAULT CURRENT_TIMESTAMP,
@@ -141,6 +148,9 @@ class BC_Business_Central_Sync_Activator {
 		) $charset_collate;";
 		
 		dbDelta( $sql_dokobit_user_phones );
+		
+		// Restore error reporting
+		$wpdb->suppress_errors = false;
 		
 		// Set default options
 		add_option( 'bc_sync_enabled', 'no' );
@@ -156,6 +166,9 @@ class BC_Business_Central_Sync_Activator {
 		add_option( 'bc_dokobit_api_key', '' );
 		add_option( 'bc_last_companies_sync', '' );
 		add_option( 'bc_last_customers_companies_sync', '' );
+		
+		// Clean up any output that might have been generated
+		ob_end_clean();
 	}
 
 }
