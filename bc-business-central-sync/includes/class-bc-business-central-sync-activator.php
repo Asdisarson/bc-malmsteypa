@@ -109,8 +109,13 @@ class BC_Business_Central_Sync_Activator {
 		$sql_dokobit_companies = "CREATE TABLE $dokobit_companies_table (
 			id int(11) NOT NULL AUTO_INCREMENT,
 			company_name varchar(255) NOT NULL,
+			bc_company_id varchar(255) DEFAULT NULL,
+			bc_company_data longtext DEFAULT NULL,
+			last_sync datetime DEFAULT CURRENT_TIMESTAMP,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id)
+			PRIMARY KEY  (id),
+			UNIQUE KEY bc_company_id (bc_company_id),
+			KEY company_name (company_name)
 		) $charset_collate;";
 		
 		dbDelta( $sql_dokobit_companies );
@@ -123,9 +128,13 @@ class BC_Business_Central_Sync_Activator {
 			phone_number varchar(50) NOT NULL,
 			personal_code varchar(20) DEFAULT NULL,
 			company_id int(11) NOT NULL,
+			bc_customer_id varchar(255) DEFAULT NULL,
+			bc_customer_data longtext DEFAULT NULL,
+			last_sync datetime DEFAULT CURRENT_TIMESTAMP,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			UNIQUE KEY phone_number (phone_number),
+			UNIQUE KEY bc_customer_id (bc_customer_id),
 			KEY user_id (user_id),
 			KEY company_id (company_id),
 			KEY personal_code (personal_code)
@@ -145,6 +154,8 @@ class BC_Business_Central_Sync_Activator {
 		add_option( 'bc_sync_customers', 'no' );
 		add_option( 'bc_dokobit_api_endpoint', 'https://developers.dokobit.com' );
 		add_option( 'bc_dokobit_api_key', '' );
+		add_option( 'bc_last_companies_sync', '' );
+		add_option( 'bc_last_customers_companies_sync', '' );
 	}
 
 }

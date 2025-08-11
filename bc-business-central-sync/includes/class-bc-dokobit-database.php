@@ -360,4 +360,192 @@ class BC_Dokobit_Database {
 		return $result ?: array();
 	}
 
+	/**
+	 * Sync companies from Business Central.
+	 *
+	 * @param array $bc_companies Business Central companies.
+	 * @return array
+	 */
+	public static function sync_companies_from_bc( $bc_companies ) {
+		global $wpdb;
+		
+		$table = $wpdb->prefix . 'bc_dokobit_companies';
+		$synced = array();
+		$errors = array();
+		
+		foreach ( $bc_companies as $bc_company ) {
+			try {
+				// Check if company already exists by BC ID
+				$existing = $wpdb->get_row( $wpdb->prepare(
+					"SELECT * FROM $table WHERE bc_company_id = %s",
+					$bc_company['id']
+				) );
+				
+				if ( $existing ) {
+					// Update existing company
+					$updated = $wpdb->update(
+						$table,
+						array(
+							'company_name' => $bc_company['displayName'] ?: $bc_company['name'],
+							'bc_company_data' => json_encode( $bc_company ),
+							'last_sync' => current_time( 'mysql' )
+						),
+						array( 'id' => $existing->id ),
+						array( '%s', '%s', '%s' ),
+						array( '%d' )
+					);
+					
+					if ( $updated !== false ) {
+						$synced[] = array(
+							'action' => 'updated',
+							'company_id' => $existing->id,
+							'bc_company_id' => $bc_company['id'],
+							'company_name' => $bc_company['displayName'] ?: $bc_company['name']
+						);
+					}
+				} else {
+					// Create new company
+					$inserted = $wpdb->insert(
+						$table,
+						array(
+							'company_name' => $bc_company['displayName'] ?: $bc_company['name'],
+							'bc_company_id' => $bc_company['id'],
+							'bc_company_data' => json_encode( $bc_company ),
+							'last_sync' => current_time( 'mysql' )
+						),
+						array( '%s', '%s', '%s', '%s' )
+					);
+					
+					if ( $inserted ) {
+						$synced[] = array(
+							'action' => 'created',
+							'company_id' => $wpdb->insert_id,
+							'bc_company_id' => $bc_company['id'],
+							'company_name' => $bc_company['displayName'] ?: $bc_company['name']
+						);
+					}
+				}
+			} catch ( Exception $e ) {
+				$errors[] = array(
+					'bc_company_id' => $bc_company['id'],
+					'error' => $e->getMessage()
+				);
+			}
+		}
+		
+		return array(
+			'synced' => $synced,
+			'errors' => $errors,
+			'total_processed' => count( $bc_companies ),
+			'successful' => count( $synced ),
+			'failed' => count( $errors )
+		);
+	}
+
+	/**
+	 * Sync customers with companies from Business Central.
+	 *
+	 * @param array $bc_customers Business Central customers with company info.
+	 * @return array
+	 */
+	public static function sync_customers_with_companies_from_bc( $bc_customers ) {
+		global $wpdb;
+		
+		$companies_table = $wpdb->prefix . 'bc_dokobit_companies';
+		$user_phones_table = $wpdb->prefix . 'bc_dokobit_user_phones';
+		$synced = array();
+		$errors = array();
+		
+		foreach ( $bc_customers as $bc_customer ) {
+			try {
+				// Find or create company
+				$company = $wpdb->get_row( $wpdb->prepare(
+					"SELECT * FROM $companies_table WHERE bc_company_id = %s",
+					$bc_customer['id']
+				) );
+				
+				if ( ! $company ) {
+					// Create company if it doesn't exist
+					$wpdb->insert(
+						$companies_table,
+						array(
+							'company_name' => $bc_customer['companyName'] ?: $bc_customer['name'],
+							'bc_company_id' => $bc_customer['id'],
+							'bc_company_data' => json_encode( $bc_customer ),
+							'last_sync' => current_time( 'mysql' )
+						),
+						array( '%s', '%s', '%s', '%s' )
+					);
+					$company_id = $wpdb->insert_id;
+				} else {
+					$company_id = $company->id;
+				}
+				
+				// Check if customer already exists
+				$existing_customer = $wpdb->get_row( $wpdb->prepare(
+					"SELECT * FROM $user_phones_table WHERE bc_customer_id = %s",
+					$bc_customer['id']
+				) );
+				
+				if ( $existing_customer ) {
+					// Update existing customer
+					$wpdb->update(
+						$user_phones_table,
+						array(
+							'company_id' => $company_id,
+							'bc_customer_data' => json_encode( $bc_customer ),
+							'last_sync' => current_time( 'mysql' )
+						),
+						array( 'id' => $existing_customer->id ),
+						array( '%d', '%s', '%s' ),
+						array( '%d' )
+					);
+					
+					$synced[] = array(
+						'action' => 'updated',
+						'customer_id' => $existing_customer->id,
+						'bc_customer_id' => $bc_customer['id'],
+						'company_id' => $company_id,
+						'customer_name' => $bc_customer['name']
+					);
+				} else {
+					// Create new customer entry (without user_id initially)
+					$wpdb->insert(
+						$user_phones_table,
+						array(
+							'user_id' => 0, // Will be set when user registers
+							'phone_number' => '', // Will be set when user registers
+							'company_id' => $company_id,
+							'bc_customer_id' => $bc_customer['id'],
+							'bc_customer_data' => json_encode( $bc_customer ),
+							'last_sync' => current_time( 'mysql' )
+						),
+						array( '%d', '%s', '%d', '%s', '%s', '%s' )
+					);
+					
+					$synced[] = array(
+						'action' => 'created',
+						'customer_id' => $wpdb->insert_id,
+						'bc_customer_id' => $bc_customer['id'],
+						'company_id' => $company_id,
+						'customer_name' => $bc_customer['name']
+					);
+				}
+			} catch ( Exception $e ) {
+				$errors[] = array(
+					'bc_customer_id' => $bc_customer['id'],
+					'error' => $e->getMessage()
+				);
+			}
+		}
+		
+		return array(
+			'synced' => $synced,
+			'errors' => $errors,
+			'total_processed' => count( $bc_customers ),
+			'successful' => count( $synced ),
+			'failed' => count( $errors )
+		);
+	}
+
 }

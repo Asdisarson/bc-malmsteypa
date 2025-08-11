@@ -55,6 +55,23 @@ if ( ! defined( 'WPINC' ) ) {
 		</div>
 		
 		<div class="bc-dokobit-admin-section">
+			<h2><?php _e( 'Business Central Integration', 'bc-business-central-sync' ); ?></h2>
+			<p><?php _e( 'Sync companies and customer data from Business Central to populate your authentication system.', 'bc-business-central-sync' ); ?></p>
+			
+			<div class="bc-dokobit-sync-actions">
+				<button type="button" id="bc-sync-companies-from-bc" class="button button-primary">
+					<?php _e( 'Sync Companies from BC', 'bc-business-central-sync' ); ?>
+				</button>
+				
+				<button type="button" id="bc-sync-customers-with-companies-from-bc" class="button button-primary">
+					<?php _e( 'Sync Customers with Companies from BC', 'bc-business-central-sync' ); ?>
+				</button>
+			</div>
+			
+			<div id="bc-sync-result" class="bc-sync-result" style="display: none;"></div>
+		</div>
+		
+		<div class="bc-dokobit-admin-section">
 			<h2><?php _e( 'Test Connection', 'bc-business-central-sync' ); ?></h2>
 			<p><?php _e( 'Test your Dokobit API connection to ensure everything is working correctly.', 'bc-business-central-sync' ); ?></p>
 			
@@ -118,6 +135,14 @@ if ( ! defined( 'WPINC' ) ) {
 					<tr>
 						<td><strong><?php _e( 'User Phones Count:', 'bc-business-central-sync' ); ?></strong></td>
 						<td><?php echo count( BC_Dokobit_Database::get_user_phones() ); ?></td>
+					</tr>
+					<tr>
+						<td><strong><?php _e( 'Last Companies Sync:', 'bc-business-central-sync' ); ?></strong></td>
+						<td><?php echo get_option( 'bc_last_companies_sync' ) ?: 'Never'; ?></td>
+					</tr>
+					<tr>
+						<td><strong><?php _e( 'Last Customers Sync:', 'bc-business-central-sync' ); ?></strong></td>
+						<td><?php echo get_option( 'bc_last_customers_companies_sync' ) ?: 'Never'; ?></td>
 					</tr>
 				</tbody>
 			</table>
@@ -185,10 +210,41 @@ if ( ! defined( 'WPINC' ) ) {
 	border: 1px solid #f5c6cb;
 	color: #721c24;
 }
+
+.bc-dokobit-sync-actions {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 15px;
+}
+
+.bc-dokobit-sync-actions .button {
+	margin: 0;
+}
+
+.bc-sync-result {
+	margin-top: 15px;
+	padding: 15px;
+	border-radius: 4px;
+	max-height: 400px;
+	overflow-y: auto;
+}
+
+.bc-sync-result.success {
+	background: #d4edda;
+	border: 1px solid #c3e6cb;
+	color: #155724;
+}
+
+.bc-sync-result.error {
+	background: #f8d7da;
+	border: 1px solid #f5c6cb;
+	color: #721c24;
+}
 </style>
 
 <script>
 jQuery(document).ready(function($) {
+	// Dokobit connection test
 	$('#bc-dokobit-test-connection').on('click', function() {
 		var button = $(this);
 		var resultDiv = $('#bc-dokobit-test-result');
@@ -221,6 +277,118 @@ jQuery(document).ready(function($) {
 			},
 			complete: function() {
 				button.prop('disabled', false).text('<?php _e( 'Test Connection', 'bc-business-central-sync' ); ?>');
+			}
+		});
+	});
+	
+	// Sync companies from Business Central
+	$('#bc-sync-companies-from-bc').on('click', function() {
+		var button = $(this);
+		var resultDiv = $('#bc-sync-result');
+		
+		button.prop('disabled', true).text('<?php _e( 'Syncing...', 'bc-business-central-sync' ); ?>');
+		resultDiv.hide();
+		
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'bc_sync_companies_from_bc',
+				nonce: '<?php echo wp_create_nonce( 'bc_sync_nonce' ); ?>'
+			},
+			success: function(response) {
+				if (response.success) {
+					var result = response.data.result;
+					var html = '<strong>Success:</strong> ' + response.data.message + '<br><br>';
+					html += '<strong>Sync Results:</strong><br>';
+					html += 'Total Processed: ' + result.total_processed + '<br>';
+					html += 'Successful: ' + result.successful + '<br>';
+					html += 'Failed: ' + result.failed + '<br><br>';
+					
+					if (result.synced.length > 0) {
+						html += '<strong>Synced Companies:</strong><br>';
+						result.synced.forEach(function(item) {
+							html += '• ' + item.company_name + ' (' + item.action + ')<br>';
+						});
+					}
+					
+					if (result.errors.length > 0) {
+						html += '<br><strong>Errors:</strong><br>';
+						result.errors.forEach(function(item) {
+							html += '• Company ID ' + item.bc_company_id + ': ' + item.error + '<br>';
+						});
+					}
+					
+					resultDiv.removeClass('error').addClass('success').html(html).show();
+				} else {
+					resultDiv.removeClass('success').addClass('error')
+						.html('<strong>Error:</strong> ' + response.data.message)
+						.show();
+				}
+			},
+			error: function() {
+				resultDiv.removeClass('success').addClass('error')
+					.html('<strong>Error:</strong> Sync failed')
+					.show();
+			},
+			complete: function() {
+				button.prop('disabled', false).text('<?php _e( 'Sync Companies from BC', 'bc-business-central-sync' ); ?>');
+			}
+		});
+	});
+	
+	// Sync customers with companies from Business Central
+	$('#bc-sync-customers-with-companies-from-bc').on('click', function() {
+		var button = $(this);
+		var resultDiv = $('#bc-sync-result');
+		
+		button.prop('disabled', true).text('<?php _e( 'Syncing...', 'bc-business-central-sync' ); ?>');
+		resultDiv.hide();
+		
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'bc_sync_customers_with_companies_from_bc',
+				nonce: '<?php echo wp_create_nonce( 'bc_sync_nonce' ); ?>'
+			},
+			success: function(response) {
+				if (response.success) {
+					var result = response.data.result;
+					var html = '<strong>Success:</strong> ' + response.data.message + '<br><br>';
+					html += '<strong>Sync Results:</strong><br>';
+					html += 'Total Processed: ' + result.total_processed + '<br>';
+					html += 'Successful: ' + result.successful + '<br>';
+					html += 'Failed: ' + result.failed + '<br><br>';
+					
+					if (result.synced.length > 0) {
+						html += '<strong>Synced Customers:</strong><br>';
+						result.synced.forEach(function(item) {
+							html += '• ' + item.customer_name + ' (' + item.action + ')<br>';
+						});
+					}
+					
+					if (result.errors.length > 0) {
+						html += '<br><strong>Errors:</strong><br>';
+						result.errors.forEach(function(item) {
+							html += '• Customer ID ' + item.bc_customer_id + ': ' + item.error + '<br>';
+						});
+					}
+					
+					resultDiv.removeClass('error').addClass('success').html(html).show();
+				} else {
+					resultDiv.removeClass('success').addClass('error')
+						.html('<strong>Error:</strong> ' + response.data.message)
+						.show();
+				}
+			},
+			error: function() {
+				resultDiv.removeClass('success').addClass('error')
+					.html('<strong>Error:</strong> Sync failed')
+					.show();
+			},
+			complete: function() {
+				button.prop('disabled', false).text('<?php _e( 'Sync Customers with Companies from BC', 'bc-business-central-sync' ); ?>');
 			}
 		});
 	});

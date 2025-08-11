@@ -33,25 +33,13 @@ class BC_Business_Central_Sync_Admin {
 	 * Initialize the class and set its properties.
 	 *
 	 * @since    1.0.0
-	 * @param      string    $plugin_name       The name of this plugin.
-	 * @param      string    $version    The version of this plugin.
+	 * @param      string    $plugin_name The name of this plugin.
+	 * @param      string    $version     The version of this plugin.
 	 */
 	public function __construct( $plugin_name, $version ) {
 
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
-
-		// Add AJAX handlers
-		add_action( 'wp_ajax_bc_sync_products', array( $this, 'ajax_sync_products' ) );
-		add_action( 'wp_ajax_bc_test_connection', array( $this, 'ajax_test_connection' ) );
-		add_action( 'wp_ajax_bc_sync_pricelists', array( $this, 'ajax_sync_pricelists' ) );
-		add_action( 'wp_ajax_bc_sync_customers', array( $this, 'ajax_sync_customers' ) );
-		
-		// Add Dokobit AJAX handlers
-		add_action( 'wp_ajax_bc_dokobit_check_auth_status', array( $this, 'ajax_dokobit_check_auth_status' ) );
-		add_action( 'wp_ajax_nopriv_bc_dokobit_check_auth_status', array( $this, 'ajax_dokobit_check_auth_status' ) );
-		add_action( 'wp_ajax_bc_dokobit_initiate_login', array( $this, 'ajax_dokobit_initiate_login' ) );
-		add_action( 'wp_ajax_nopriv_bc_dokobit_initiate_login', array( $this, 'ajax_dokobit_initiate_login' ) );
 
 	}
 
@@ -131,17 +119,24 @@ class BC_Business_Central_Sync_Admin {
 	}
 
 	/**
-	 * Register settings.
+	 * Register the settings for this plugin.
 	 *
 	 * @since    1.0.0
 	 */
 	public function register_settings() {
-		register_setting( 'bc_sync_options', 'bc_sync_enabled' );
-		register_setting( 'bc_sync_options', 'bc_api_url' );
-		register_setting( 'bc_sync_options', 'bc_company_id' );
-		register_setting( 'bc_sync_options', 'bc_client_id' );
-		register_setting( 'bc_sync_options', 'bc_client_secret' );
-		register_setting( 'bc_sync_options', 'bc_sync_interval' );
+		// Business Central settings
+		register_setting( 'bc_business_central_options', 'bc_sync_enabled' );
+		register_setting( 'bc_business_central_options', 'bc_api_url' );
+		register_setting( 'bc_business_central_options', 'bc_company_id' );
+		register_setting( 'bc_business_central_options', 'bc_client_id' );
+		register_setting( 'bc_business_central_options', 'bc_client_secret' );
+		register_setting( 'bc_business_central_options', 'bc_sync_interval' );
+		register_setting( 'bc_business_central_options', 'bc_sync_pricelists' );
+		register_setting( 'bc_business_central_options', 'bc_sync_customers' );
+		
+		// Dokobit settings
+		register_setting( 'bc_dokobit_options', 'bc_dokobit_api_endpoint' );
+		register_setting( 'bc_dokobit_options', 'bc_dokobit_api_key' );
 	}
 
 	/**
@@ -319,6 +314,73 @@ class BC_Business_Central_Sync_Admin {
 			wp_send_json_error( array(
 				'message' => 'Error syncing customer companies: ' . $e->getMessage()
 			) );
+		}
+	}
+
+	/**
+	 * AJAX handler for testing Dokobit connection.
+	 */
+	public function ajax_dokobit_test_connection() {
+		check_ajax_referer( 'bc_dokobit_test_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( 'Unauthorized' ); }
+		
+		try {
+			$api = new BC_Dokobit_API();
+			$result = $api->test_connection();
+			
+			if ( isset( $result['error'] ) ) {
+				wp_send_json_error( array( 'message' => $result['error'] ) );
+			} else {
+				wp_send_json_success( array( 'message' => $result['message'] ) );
+			}
+		} catch ( Exception $e ) {
+			wp_send_json_error( array( 'message' => 'Connection test failed: ' . $e->getMessage() ) );
+		}
+	}
+
+	/**
+	 * AJAX handler for syncing companies from Business Central.
+	 */
+	public function ajax_sync_companies_from_bc() {
+		check_ajax_referer( 'bc_sync_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( 'Unauthorized' ); }
+		
+		try {
+			$api = new BC_Business_Central_API();
+			$bc_companies = $api->get_companies();
+			$result = BC_Dokobit_Database::sync_companies_from_bc( $bc_companies );
+			
+			update_option( 'bc_last_companies_sync', current_time( 'mysql' ) );
+			
+			wp_send_json_success( array(
+				'message' => sprintf( 'Successfully synced %d companies from Business Central.', $result['successful'] ),
+				'result' => $result
+			) );
+		} catch ( Exception $e ) {
+			wp_send_json_error( array( 'message' => 'Error syncing companies: ' . $e->getMessage() ) );
+		}
+	}
+
+	/**
+	 * AJAX handler for syncing customers with companies from Business Central.
+	 */
+	public function ajax_sync_customers_with_companies_from_bc() {
+		check_ajax_referer( 'bc_sync_nonce', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) { wp_die( 'Unauthorized' ); }
+		
+		try {
+			$api = new BC_Business_Central_API();
+			$bc_customers = $api->get_customers_with_companies();
+			$result = BC_Dokobit_Database::sync_customers_with_companies_from_bc( $bc_customers );
+			
+			update_option( 'bc_last_customers_companies_sync', current_time( 'mysql' ) );
+			
+			wp_send_json_success( array(
+				'message' => sprintf( 'Successfully synced %d customers with companies from Business Central.', $result['successful'] ),
+				'result' => $result
+			) );
+		} catch ( Exception $e ) {
+			wp_send_json_error( array( 'message' => 'Error syncing customers with companies: ' . $e->getMessage() ) );
 		}
 	}
 

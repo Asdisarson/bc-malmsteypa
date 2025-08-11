@@ -15,6 +15,10 @@ delete_option( 'bc_sync_interval' );
 delete_option( 'bc_last_sync' );
 delete_option( 'bc_sync_pricelists' );
 delete_option( 'bc_sync_customers' );
+delete_option( 'bc_dokobit_api_endpoint' );
+delete_option( 'bc_dokobit_api_key' );
+delete_option( 'bc_last_companies_sync' );
+delete_option( 'bc_last_customers_companies_sync' );
 
 // Clear scheduled events
 wp_clear_scheduled_hook( 'bc_sync_products_cron' );

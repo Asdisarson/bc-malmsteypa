@@ -283,4 +283,40 @@ class BC_Business_Central_API {
 		return $response['value'][0];
 	}
 
+	/**
+	 * Get companies from Business Central.
+	 *
+	 * @return array
+	 * @throws Exception
+	 */
+	public function get_companies() {
+		$endpoint = 'companies?$select=id,name,displayName,country,currencyCode,languageId,timeZone';
+		
+		$response = $this->make_request( $endpoint );
+		
+		if ( ! isset( $response['value'] ) ) {
+			throw new Exception( 'Invalid companies response' );
+		}
+
+		return $response['value'];
+	}
+
+	/**
+	 * Get customers with company information.
+	 *
+	 * @return array
+	 * @throws Exception
+	 */
+	public function get_customers_with_companies() {
+		$endpoint = 'customers?$select=id,number,name,companyName,priceListId,priceListCode&$filter=companyName ne null';
+		
+		$response = $this->make_request( $endpoint );
+		
+		if ( ! isset( $response['value'] ) ) {
+			throw new Exception( 'Invalid customers response' );
+		}
+
+		return $response['value'];
+	}
+
 }

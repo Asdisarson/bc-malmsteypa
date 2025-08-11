@@ -183,6 +183,15 @@ class BC_Business_Central_Sync {
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
 		$this->loader->add_action( 'wp_ajax_bc_sync_products', $plugin_admin, 'ajax_sync_products' );
 		$this->loader->add_action( 'wp_ajax_bc_test_connection', $plugin_admin, 'ajax_test_connection' );
+		$this->loader->add_action( 'wp_ajax_bc_sync_pricelists', $plugin_admin, 'ajax_sync_pricelists' );
+		$this->loader->add_action( 'wp_ajax_bc_sync_customers', $plugin_admin, 'ajax_sync_customers' );
+		$this->loader->add_action( 'wp_ajax_bc_sync_companies_from_bc', $plugin_admin, 'ajax_sync_companies_from_bc' );
+		$this->loader->add_action( 'wp_ajax_bc_sync_customers_with_companies_from_bc', $plugin_admin, 'ajax_sync_customers_with_companies_from_bc' );
+		$this->loader->add_action( 'wp_ajax_bc_dokobit_test_connection', $plugin_admin, 'ajax_dokobit_test_connection' );
+		$this->loader->add_action( 'wp_ajax_bc_dokobit_check_auth_status', $plugin_admin, 'ajax_dokobit_check_auth_status' );
+		$this->loader->add_action( 'wp_ajax_nopriv_bc_dokobit_check_auth_status', $plugin_admin, 'ajax_dokobit_check_auth_status' );
+		$this->loader->add_action( 'wp_ajax_bc_dokobit_initiate_login', $plugin_admin, 'ajax_dokobit_initiate_login' );
+		$this->loader->add_action( 'wp_ajax_nopriv_bc_dokobit_initiate_login', $plugin_admin, 'ajax_dokobit_initiate_login' );
 
 	}
 
