@@ -209,12 +209,20 @@ class BC_Business_Central_Sync {
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 		
-		// Initialize shortcodes
-		$this->loader->add_action( 'init', 'BC_Shortcodes', 'init' );
-		
-		// Initialize Dokobit shortcodes
-		$this->loader->add_action( 'init', 'BC_Dokobit_Shortcode', 'init' );
+		// Initialize shortcodes using proper callback functions
+		$this->loader->add_action( 'init', array( $this, 'init_shortcodes' ) );
 
+	}
+
+	/**
+	 * Initialize shortcodes.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 */
+	private function init_shortcodes() {
+		BC_Shortcodes::init();
+		BC_Dokobit_Shortcode::init();
 	}
 
 	/**
