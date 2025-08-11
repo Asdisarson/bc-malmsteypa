@@ -210,7 +210,7 @@ class BC_Business_Central_Sync {
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 		
 		// Initialize shortcodes using proper callback functions
-		$this->loader->add_action( 'init', array( $this, 'init_shortcodes' ) );
+		$this->loader->add_action( 'init', $this, 'init_shortcodes' );
 
 	}
 
