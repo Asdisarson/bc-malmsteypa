@@ -1,9 +1,12 @@
 # Business Central to WooCommerce Sync Plugin
 
-A WordPress plugin that automatically fetches products from Microsoft Dynamics 365 Business Central and adds them to WooCommerce as draft products for review and approval.
+A professional WordPress plugin that seamlessly integrates Microsoft Dynamics 365 Business Central with WooCommerce, providing automated product synchronization, customer-specific pricing, and integrated phone authentication for B2B operations.
 
-## Features
+**Developed by [Malmsteypa](https://malmsteypa.is)**
 
+## 🚀 Features
+
+### Core Integration
 - **Automatic Product Sync**: Fetches all products from Business Central via REST API
 - **Draft Creation**: Creates products in WooCommerce as drafts for review
 - **Smart Updates**: Updates existing products if they already exist
@@ -11,103 +14,125 @@ A WordPress plugin that automatically fetches products from Microsoft Dynamics 3
 - **Connection Testing**: Built-in connection testing to verify API credentials
 - **Manual Sync**: Manual sync button for immediate product synchronization
 - **Sync Logging**: Comprehensive logging of all sync operations
-- **WooCommerce Integration**: Seamlessly integrates with WooCommerce
+
+### WooCommerce Integration
+- **Seamless Integration**: Fully compatible with WooCommerce 5.0+
 - **Admin Interface**: User-friendly admin interface for configuration
+- **Product Mapping**: Intelligent mapping of Business Central fields to WooCommerce
+- **Inventory Management**: Sync inventory levels and product status
+
+### Advanced B2B Features
 - **Pricelist Management**: Syncs Business Central pricelists and customer company assignments
 - **Customer-Specific Pricing**: Displays different prices based on customer's assigned pricelist
 - **B2B Pricing Support**: Handles company-specific pricing for business customers
+- **Company Management**: Built-in company and user phone management system
+
+### Security & Authentication
 - **Integrated Phone Authentication**: Built-in Dokobit phone authentication system
 - **Secure Customer Access**: Only authenticated customers can view prices and make purchases
-- **Company Management**: Built-in company and user phone management system
-- **No External Dependencies**: Self-contained solution with all authentication features
-
-## Requirements
-
-- WordPress 5.0 or higher
-- WooCommerce 5.0 or higher
-- PHP 7.4 or higher
-- Business Central environment with API access
-- Azure AD application for authentication
-- **Dokobit API credentials** (for phone authentication)
-
-## Authentication & Security
-
-### Integrated Dokobit Phone Authentication
-The plugin includes a **complete Dokobit phone authentication system** built directly into the plugin:
-
-- **Phone-based Authentication**: Customers authenticate using their registered phone numbers
-- **Company Assignment**: Users are automatically linked to their assigned company
-- **Secure Access**: Only authenticated customers can view prices and make purchases
 - **Session Management**: Secure session handling with company verification
 - **No External Dependencies**: Everything is contained within this single plugin
 
-### Company Management System
-- **Company Creation**: Admins can create and manage companies through the admin interface
-- **User Phone Registration**: Link users to companies via phone numbers
-- **Personal Code Support**: Supports Iceland/Audkenni personal codes
-- **Bulk Management**: Easy management of multiple companies and users
+## 📋 Requirements
 
-### Price Protection
-- **Hidden Prices**: Product prices are hidden for non-authenticated users
-- **Purchase Prevention**: Non-authenticated users cannot add products to cart
-- **Login Required**: Clear messaging about authentication requirements
-- **Company Verification**: Ensures users are assigned to valid companies
+- **WordPress**: 5.0 or higher
+- **WooCommerce**: 5.0 or higher  
+- **PHP**: 7.4 or higher
+- **Business Central**: Environment with API access
+- **Azure AD**: Application for authentication
+- **Dokobit API**: Credentials for phone authentication
 
-### Customer Flow
-1. **Guest Access**: Users see products but no prices
-2. **Authentication**: Users login via integrated Dokobit phone authentication
-3. **Company Verification**: System verifies user's company assignment
-4. **Price Display**: Company-specific prices are shown
-5. **Purchase Access**: Users can now add products to cart and checkout
+## 🛠️ Installation
 
-## Installation
+1. **Upload Plugin Files**
+   - Upload the plugin files to `/wp-content/plugins/bc-business-central-sync/`
+   - Or install via WordPress admin panel
 
-1. Upload the plugin files to the `/wp-content/plugins/bc-business-central-sync/` directory
-2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to 'BC Sync' in the admin menu to configure the plugin
+2. **Activate Plugin**
+   - Activate the plugin through the 'Plugins' menu in WordPress
+   - Ensure WooCommerce is active
 
-## Configuration
+3. **Configure Settings**
+   - Go to 'BC Sync' in the admin menu
+   - Configure Business Central API settings
+   - Set up Dokobit authentication
+
+## ⚙️ Configuration
 
 ### Business Central API Settings
 
-1. **API Base URL**: Your Business Central API base URL
+1. **API Base URL**
    - Format: `https://api.businesscentral.dynamics.com/v2.0/your-environment`
+   - Your Business Central API base URL
    
-2. **Company ID**: Your Business Central company ID
+2. **Company ID**
+   - Your Business Central company ID
    
-3. **Client ID**: Azure AD application client ID
+3. **Client ID**
+   - Azure AD application client ID
    
-4. **Client Secret**: Azure AD application client secret
+4. **Client Secret**
+   - Azure AD application client secret
 
 ### Sync Settings
 
 - **Enable Sync**: Toggle automatic synchronization on/off
 - **Sync Interval**: Choose between hourly, daily, or weekly sync
+- **Sync Pricelists**: Enable/disable pricelist synchronization
+- **Sync Customers**: Enable/disable customer company synchronization
 
-## Azure AD Application Setup
+## 🔐 Azure AD Application Setup
 
 To use this plugin, you need to create an Azure AD application:
 
-1. Go to Azure Portal > Azure Active Directory > App registrations
-2. Click "New registration"
-3. Give it a name (e.g., "Business Central WooCommerce Sync")
-4. Select "Accounts in this organizational directory only"
-5. Click "Register"
-6. Note the Application (client) ID
-7. Go to "Certificates & secrets" and create a new client secret
-8. Note the client secret value
-9. Go to "API permissions" and add:
-   - Microsoft Graph > Application permissions > Directory.Read.All
-   - Business Central > Delegated permissions > Items.Read.All
-10. Grant admin consent for the permissions
+1. **Go to Azure Portal**
+   - Navigate to Azure Active Directory > App registrations
+   - Click "New registration"
 
-## Business Central API Permissions
+2. **Configure Application**
+   - Give it a name (e.g., "Business Central WooCommerce Sync")
+   - Select "Accounts in this organizational directory only"
+   - Click "Register"
+
+3. **Get Credentials**
+   - Note the Application (client) ID
+   - Go to "Certificates & secrets" and create a new client secret
+   - Note the client secret value
+
+4. **Set Permissions**
+   - Go to "API permissions" and add:
+     - Microsoft Graph > Application permissions > Directory.Read.All
+     - Business Central > Delegated permissions > Items.Read.All
+   - Grant admin consent for the permissions
+
+## 🔒 Business Central API Permissions
 
 Ensure your Business Central environment allows:
 - Read access to Items table
 - API access for the Azure AD application
+- Proper authentication flow setup
 
-## Usage
+## 📱 Dokobit Phone Authentication
+
+The plugin includes a complete Dokobit phone authentication system:
+
+### Features
+- **Phone-based Authentication**: Customers authenticate using registered phone numbers
+- **Company Assignment**: Users are automatically linked to their assigned company
+- **Secure Access**: Only authenticated customers can view prices and make purchases
+- **Session Management**: Secure session handling with company verification
+
+### Setup
+1. **Get API Credentials**
+   - Obtain Dokobit API key from [developers.dokobit.com](https://developers.dokobit.com)
+   - Configure API endpoint and key in plugin settings
+
+2. **Company Management**
+   - Create companies through the admin interface
+   - Link users to companies via phone numbers
+   - Support for Iceland/Audkenni personal codes
+
+## 🎯 Usage
 
 ### Manual Sync
 
@@ -143,7 +168,7 @@ Ensure your Business Central environment allows:
 2. Choose your preferred sync interval
 3. The plugin will automatically sync products according to the schedule
 
-## Product Mapping
+## 🔄 Product Mapping
 
 The plugin maps the following Business Central fields to WooCommerce:
 
@@ -156,9 +181,9 @@ The plugin maps the following Business Central fields to WooCommerce:
 | `unitCost` | Custom Meta | Stored as `_bc_unit_cost` |
 | `inventory` | Custom Meta | Stored as `_bc_inventory` |
 | `blocked` | Custom Meta | Stored as `_bc_blocked` |
-| `number` | Custom Meta | Stored as `_bc_product_number`
+| `number` | Custom Meta | Stored as `_bc_product_number` |
 
-## Shortcodes
+## 📝 Shortcodes
 
 The plugin provides several shortcodes for easy integration into your theme:
 
@@ -250,3 +275,101 @@ Displays company-specific pricing for a product (only visible to authenticated c
 <!-- Standalone Dokobit authentication -->
 [bc_dokobit_login]
 ```
+
+## 🔧 Development
+
+### Code Structure
+```
+bc-business-central-sync/
+├── admin/                 # Admin interface files
+├── includes/             # Core plugin classes
+├── public/               # Public-facing functionality
+├── languages/            # Internationalization files
+├── bc-business-central-sync.php  # Main plugin file
+└── README.md             # This file
+```
+
+### Key Classes
+- `BC_Business_Central_Sync` - Main plugin class
+- `BC_Business_Central_API` - Business Central API integration
+- `BC_Dokobit_API` - Dokobit authentication API
+- `BC_Pricelist_Manager` - Pricelist management
+- `BC_WooCommerce_Manager` - WooCommerce integration
+
+### Hooks and Filters
+The plugin provides various hooks and filters for customization:
+- `bc_sync_products_before` - Before product sync
+- `bc_sync_products_after` - After product sync
+- `bc_customer_authenticated` - When customer authenticates
+- `bc_company_pricing_display` - Customize pricing display
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **WooCommerce Not Found**
+   - Ensure WooCommerce is installed and activated
+   - Check WooCommerce version compatibility (5.0+)
+
+2. **API Connection Failed**
+   - Verify Business Central API URL
+   - Check Azure AD credentials
+   - Ensure proper API permissions
+
+3. **Authentication Issues**
+   - Verify Dokobit API credentials
+   - Check company and user setup
+   - Clear browser cache and cookies
+
+4. **Sync Not Working**
+   - Check sync settings in admin
+   - Verify cron jobs are running
+   - Check error logs for details
+
+### Debug Mode
+Enable debug mode in WordPress to see detailed error messages:
+```php
+define( 'WP_DEBUG', true );
+define( 'WP_DEBUG_LOG', true );
+```
+
+## 📞 Support
+
+For support and questions:
+- **Website**: [malmsteypa.is](https://malmsteypa.is)
+- **Documentation**: [malmsteypa.is/business-central-sync](https://malmsteypa.is/business-central-sync)
+- **Email**: support@malmsteypa.is
+
+## 📄 License
+
+This plugin is licensed under the GPL v2 or later.
+
+## 🔄 Changelog
+
+### Version 1.0.0
+- Initial release
+- Business Central to WooCommerce product sync
+- Dokobit phone authentication integration
+- Customer-specific pricing system
+- Company management functionality
+- Comprehensive admin interface
+- Shortcode support for easy integration
+
+## 🤝 Contributing
+
+We welcome contributions! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 🙏 Acknowledgments
+
+- Microsoft Dynamics 365 Business Central team
+- Dokobit for phone authentication services
+- WooCommerce community
+- WordPress community
+
+---
+
+**Developed with ❤️ by [Malmsteypa](https://malmsteypa.is)**
