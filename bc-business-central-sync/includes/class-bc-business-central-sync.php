@@ -218,9 +218,9 @@ class BC_Business_Central_Sync {
 	 * Initialize shortcodes.
 	 *
 	 * @since    1.0.0
-	 * @access   private
+	 * @access   public
 	 */
-	private function init_shortcodes() {
+	public function init_shortcodes() {
 		BC_Shortcodes::init();
 		BC_Dokobit_Shortcode::init();
 	}
