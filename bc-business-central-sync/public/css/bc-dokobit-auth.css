@@ -1,0 +1,225 @@
+/**
+ * Dokobit Authentication CSS
+ *
+ * @package    BC_Business_Central_Sync
+ * @subpackage BC_Business_Central_Sync/public
+ */
+
+/* Login Container */
+.bc-dokobit-login-container {
+	max-width: 400px;
+	margin: 2rem auto;
+	padding: 2rem;
+	background: #fff;
+	border-radius: 8px;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.bc-dokobit-login-form h3 {
+	text-align: center;
+	margin-bottom: 1.5rem;
+	color: #333;
+}
+
+/* Form Groups */
+.bc-dokobit-form-group {
+	margin-bottom: 1.5rem;
+}
+
+.bc-dokobit-form-group label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-weight: 500;
+	color: #333;
+}
+
+.bc-dokobit-form-group input[type="tel"] {
+	width: 100%;
+	padding: 12px;
+	border: 2px solid #ddd;
+	border-radius: 6px;
+	font-size: 16px;
+	transition: border-color 0.3s ease;
+}
+
+.bc-dokobit-form-group input[type="tel"]:focus {
+	outline: none;
+	border-color: #007cba;
+	box-shadow: 0 0 0 3px rgba(0, 124, 186, 0.1);
+}
+
+.bc-dokobit-help-text {
+	margin-top: 0.5rem;
+	font-size: 14px;
+	color: #666;
+	font-style: italic;
+}
+
+/* Submit Button */
+.bc-dokobit-submit-btn {
+	width: 100%;
+	padding: 12px 24px;
+	background: #007cba;
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+	font-size: 16px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+}
+
+.bc-dokobit-submit-btn:hover {
+	background: #005a87;
+}
+
+.bc-dokobit-submit-btn:disabled {
+	background: #ccc;
+	cursor: not-allowed;
+}
+
+/* Messages */
+.bc-dokobit-message {
+	padding: 12px;
+	border-radius: 6px;
+	margin-top: 1rem;
+	font-weight: 500;
+}
+
+.bc-dokobit-message-success {
+	background: #d4edda;
+	border: 1px solid #c3e6cb;
+	color: #155724;
+}
+
+.bc-dokobit-message-error {
+	background: #f8d7da;
+	border: 1px solid #f5c6cb;
+	color: #721c24;
+}
+
+/* Authentication Info */
+.bc-dokobit-auth-info {
+	background: #e7f3ff;
+	border: 1px solid #b3d9ff;
+	border-radius: 6px;
+	padding: 1.5rem;
+	margin-top: 1rem;
+	text-align: center;
+}
+
+.bc-dokobit-auth-info p {
+	margin: 0.5rem 0;
+	color: #0056b3;
+}
+
+.bc-dokobit-auth-info strong {
+	color: #003d82;
+}
+
+/* Spinner */
+.bc-dokobit-spinner {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	border: 3px solid #b3d9ff;
+	border-radius: 50%;
+	border-top-color: #007cba;
+	animation: spin 1s ease-in-out infinite;
+	margin-top: 1rem;
+}
+
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+
+/* Company Info */
+.bc-dokobit-company-info {
+	background: #f8f9fa;
+	border: 1px solid #e9ecef;
+	border-radius: 6px;
+	padding: 1.5rem;
+	margin: 1rem 0;
+}
+
+.bc-dokobit-company-info h3 {
+	margin-top: 0;
+	margin-bottom: 1rem;
+	color: #495057;
+	border-bottom: 1px solid #dee2e6;
+	padding-bottom: 0.5rem;
+}
+
+.bc-dokobit-company-info p {
+	margin: 0;
+	color: #6c757d;
+	font-size: 1.1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+	.bc-dokobit-login-container {
+		margin: 1rem;
+		padding: 1.5rem;
+	}
+	
+	.bc-dokobit-form-group input[type="tel"] {
+		font-size: 16px; /* Prevents zoom on iOS */
+	}
+}
+
+/* Loading States */
+.bc-dokobit-loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.bc-dokobit-loading .bc-dokobit-spinner {
+	display: inline-block;
+}
+
+/* Error States */
+.bc-dokobit-form-group.has-error input[type="tel"] {
+	border-color: #dc3545;
+}
+
+.bc-dokobit-form-group.has-error .bc-dokobit-error-message {
+	color: #dc3545;
+	font-size: 14px;
+	margin-top: 0.5rem;
+}
+
+/* Success States */
+.bc-dokobit-form-group.has-success input[type="tel"] {
+	border-color: #28a745;
+}
+
+/* Accessibility */
+.bc-dokobit-login-form input:focus + label,
+.bc-dokobit-login-form input:focus {
+	outline: 2px solid #007cba;
+	outline-offset: 2px;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+	.bc-dokobit-login-container {
+		border: 2px solid #000;
+	}
+	
+	.bc-dokobit-submit-btn {
+		border: 2px solid #000;
+	}
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+	.bc-dokobit-spinner {
+		animation: none;
+	}
+	
+	.bc-dokobit-form-group input[type="tel"],
+	.bc-dokobit-submit-btn {
+		transition: none;
+	}
+}
