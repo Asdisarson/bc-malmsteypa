@@ -12,6 +12,10 @@
  */
 class BC_Business_Central_Sync_Activator {
 
+	// =============================================================================
+	// ACTIVATION METHODS
+	// =============================================================================
+
 	/**
 	 * Plugin activation handler.
 	 *
@@ -58,6 +62,10 @@ class BC_Business_Central_Sync_Activator {
 		ob_end_clean();
 	}
 
+	// =============================================================================
+	// DEPENDENCY CHECKS
+	// =============================================================================
+
 	/**
 	 * Check if WooCommerce is active and accessible.
 	 *
@@ -88,6 +96,10 @@ class BC_Business_Central_Sync_Activator {
 		
 		return true;
 	}
+
+	// =============================================================================
+	// DATABASE TABLE CREATION
+	// =============================================================================
 
 	/**
 	 * Create all required database tables.
@@ -299,6 +311,10 @@ class BC_Business_Central_Sync_Activator {
 		
 		dbDelta( $sql );
 	}
+
+	// =============================================================================
+	// OPTIONS & SETTINGS
+	// =============================================================================
 
 	/**
 	 * Set default plugin options.

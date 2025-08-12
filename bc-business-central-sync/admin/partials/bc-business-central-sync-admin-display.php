@@ -21,8 +21,8 @@ if ( ! defined( 'WPINC' ) ) {
 			
 			<form method="post" action="options.php">
 				<?php
-				settings_fields( 'bc_sync_options' );
-				do_settings_sections( 'bc_sync_options' );
+				settings_fields( 'bc-business-central-sync' );
+				do_settings_sections( 'bc-business-central-sync' );
 				?>
 				
 				<table class="form-table">

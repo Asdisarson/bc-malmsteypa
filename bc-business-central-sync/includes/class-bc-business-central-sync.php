@@ -13,6 +13,10 @@
  */
 class BC_Business_Central_Sync {
 
+	// =============================================================================
+	// CLASS PROPERTIES
+	// =============================================================================
+
 	/**
 	 * The loader that's responsible for maintaining and registering all hooks that power
 	 * the plugin.
@@ -50,6 +54,10 @@ class BC_Business_Central_Sync {
 	 */
 	private static $instance = null;
 
+	// =============================================================================
+	// CONSTRUCTOR & INITIALIZATION
+	// =============================================================================
+
 	/**
 	 * Define the core functionality of the plugin.
 	 *
@@ -60,30 +68,25 @@ class BC_Business_Central_Sync {
 	 * @since 1.0.0
 	 */
 	public function __construct() {
-		$this->version = defined( 'BC_BUSINESS_CENTRAL_SYNC_VERSION' ) ? BC_BUSINESS_CENTRAL_SYNC_VERSION : '1.0.0';
-		$this->plugin_name = 'bc-business-central-sync';
-
+		$this->init_properties();
 		$this->load_dependencies();
-		$this->set_locale();
-		$this->define_admin_hooks();
-		$this->define_public_hooks();
-		$this->define_cron_hooks();
-		$this->init_shortcodes();
-		$this->init_hpos_compatibility();
+		$this->init_components();
 	}
 
 	/**
-	 * Get plugin instance (singleton pattern).
+	 * Initialize plugin properties.
 	 *
 	 * @since 1.0.0
-	 * @return BC_Business_Central_Sync Plugin instance.
+	 * @access private
 	 */
-	public static function get_instance() {
-		if ( null === self::$instance ) {
-			self::$instance = new self();
-		}
-		return self::$instance;
+	private function init_properties() {
+		$this->version = defined( 'BC_BUSINESS_CENTRAL_SYNC_VERSION' ) ? BC_BUSINESS_CENTRAL_SYNC_VERSION : '1.0.0';
+		$this->plugin_name = 'bc-business-central-sync';
 	}
+
+	// =============================================================================
+	// DEPENDENCY LOADING
+	// =============================================================================
 
 	/**
 	 * Load the required dependencies for this plugin.
@@ -102,81 +105,78 @@ class BC_Business_Central_Sync {
 	 * @access   private
 	 */
 	private function load_dependencies() {
-
-		/**
-		 * The class responsible for orchestrating the actions and filters of the
-		 * core plugin.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-business-central-sync-loader.php';
-
-		/**
-		 * The class responsible for defining internationalization functionality
-		 * of the plugin.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-business-central-sync-i18n.php';
-
-		/**
-		 * The class responsible for defining all actions that occur in the admin area.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'admin/class-bc-business-central-sync-admin.php';
-
-		/**
-		 * The class responsible for defining all actions that occur in the public-facing
-		 * side of the site.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'public/class-bc-business-central-sync-public.php';
-
-		/**
-		 * The class responsible for Business Central API operations.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-business-central-api.php';
-
-		/**
-		 * The class responsible for Dokobit API operations.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-dokobit-api.php';
-
-		/**
-		 * The class responsible for Dokobit database operations.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-dokobit-database.php';
-
-		/**
-		 * The class responsible for Dokobit shortcode functionality.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-dokobit-shortcode.php';
-
-		/**
-		 * The class responsible for customer pricing functionality.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-customer-pricing.php';
-
-		/**
-		 * The class responsible for pricelist management.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-pricelist-manager.php';
-
-		/**
-		 * The class responsible for shortcode functionality.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-shortcodes.php';
-
-		/**
-		 * The class responsible for WooCommerce integration.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-woocommerce-manager.php';
-
-		/**
-		 * The class responsible for HPOS compatibility.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-hpos-compatibility.php';
-
-		/**
-		 * The class responsible for HPOS utility functions.
-		 */
-		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-hpos-utils.php';
-
+		// Core plugin classes
+		$this->load_core_classes();
+		
+		// Feature classes
+		$this->load_feature_classes();
+		
+		// Integration classes
+		$this->load_integration_classes();
+		
+		// Initialize the loader
 		$this->loader = new BC_Business_Central_Sync_Loader();
+	}
+
+	/**
+	 * Load core plugin classes.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 */
+	private function load_core_classes() {
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/core/class-bc-plugin-core.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-business-central-sync-loader.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-business-central-sync-i18n.php';
+	}
+
+	/**
+	 * Load feature-specific classes.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 */
+	private function load_feature_classes() {
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-business-central-api.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-dokobit-api.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-dokobit-database.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-dokobit-shortcode.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-customer-pricing.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-pricelist-manager.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-shortcodes.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/features/class-bc-woocommerce-manager.php';
+	}
+
+	/**
+	 * Load integration and compatibility classes.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 */
+	private function load_integration_classes() {
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'admin/class-bc-business-central-sync-admin.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'public/class-bc-business-central-sync-public.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-hpos-compatibility.php';
+		require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-hpos-utils.php';
+	}
+
+	// =============================================================================
+	// COMPONENT INITIALIZATION
+	// =============================================================================
+
+	/**
+	 * Initialize all plugin components.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 */
+	private function init_components() {
+		$this->set_locale();
+		$this->define_admin_hooks();
+		$this->define_public_hooks();
+		$this->define_cron_hooks();
+		$this->init_shortcodes();
+		$this->init_hpos_compatibility();
 	}
 
 	/**
@@ -192,6 +192,32 @@ class BC_Business_Central_Sync {
 		$plugin_i18n = new BC_Business_Central_Sync_i18n();
 		$this->loader->add_action( 'plugins_loaded', $plugin_i18n, 'load_plugin_textdomain' );
 	}
+
+	/**
+	 * Initialize shortcodes.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 */
+	private function init_shortcodes() {
+		$shortcodes = new BC_Shortcodes();
+		$shortcodes->init();
+	}
+
+	/**
+	 * Initialize HPOS compatibility.
+	 *
+	 * @since 1.0.0
+	 * @access private
+	 */
+	private function init_hpos_compatibility() {
+		// Initialize HPOS compatibility - the constructor handles all initialization
+		new BC_HPOS_Compatibility();
+	}
+
+	// =============================================================================
+	// HOOK DEFINITIONS
+	// =============================================================================
 
 	/**
 	 * Register all of the hooks related to the admin area functionality
@@ -245,26 +271,6 @@ class BC_Business_Central_Sync {
 	}
 
 	/**
-	 * Initialize shortcodes.
-	 *
-	 * @since 1.0.0
-	 */
-	public function init_shortcodes() {
-		$shortcodes = new BC_Shortcodes();
-		$shortcodes->init();
-	}
-
-	/**
-	 * Initialize HPOS compatibility.
-	 *
-	 * @since 1.0.0
-	 */
-	private function init_hpos_compatibility() {
-		// Initialize HPOS compatibility - the constructor handles all initialization
-		new BC_HPOS_Compatibility();
-	}
-
-	/**
 	 * Register all of the hooks related to cron functionality
 	 * of the plugin.
 	 *
@@ -281,6 +287,23 @@ class BC_Business_Central_Sync {
 		// Cron event handlers
 		$this->loader->add_action( 'bc_sync_products_cron', $this, 'cron_sync_products' );
 		$this->loader->add_action( 'bc_sync_pricelists_cron', $this, 'cron_sync_pricelists' );
+	}
+
+	// =============================================================================
+	// PUBLIC METHODS
+	// =============================================================================
+
+	/**
+	 * Get plugin instance (singleton pattern).
+	 *
+	 * @since 1.0.0
+	 * @return BC_Business_Central_Sync Plugin instance.
+	 */
+	public static function get_instance() {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
 	}
 
 	/**
@@ -323,6 +346,10 @@ class BC_Business_Central_Sync {
 		return $this->version;
 	}
 
+	// =============================================================================
+	// CRON FUNCTIONALITY
+	// =============================================================================
+
 	/**
 	 * Add custom cron interval.
 	 *
@@ -353,6 +380,7 @@ class BC_Business_Central_Sync {
 	 * Schedule cron events.
 	 *
 	 * @since 1.0.0
+	 * @access private
 	 */
 	public function schedule_cron_events() {
 		$sync_enabled = get_option( 'bc_sync_enabled', 'no' );
@@ -371,6 +399,7 @@ class BC_Business_Central_Sync {
 	 * Cron job to sync products.
 	 *
 	 * @since 1.0.0
+	 * @access private
 	 */
 	public function cron_sync_products() {
 		if ( ! class_exists( 'BC_Business_Central_API' ) ) {
@@ -385,6 +414,7 @@ class BC_Business_Central_Sync {
 	 * Cron job to sync pricelists.
 	 *
 	 * @since 1.0.0
+	 * @access private
 	 */
 	public function cron_sync_pricelists() {
 		if ( ! class_exists( 'BC_Pricelist_Manager' ) ) {
