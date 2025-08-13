@@ -237,6 +237,8 @@ class BC_Business_Central_Sync_Admin extends BC_Plugin_Core {
 			'bc-user-management',
 			array( $this, 'display_user_management_page' )
 		);
+	
+		// OAuth Settings submenu is now registered by the BC_OAuth_Settings class
 	}
 
 	// =============================================================================
@@ -326,6 +328,8 @@ class BC_Business_Central_Sync_Admin extends BC_Plugin_Core {
 		
 		include_once $this->get_file_path( 'admin/partials/bc-user-management-admin-display.php' );
 	}
+	
+	// OAuth settings page display method has been moved to the BC_OAuth_Settings class
 
 	/**
 	 * Display the companies admin page.
@@ -480,29 +484,12 @@ class BC_Business_Central_Sync_Admin extends BC_Plugin_Core {
 			'bc_api_settings'
 		);
 
-		// Client ID setting
-		add_settings_field(
-			'bc_client_id',
-			__( 'Client ID', 'bc-business-central-sync' ),
-			array( $this, 'client_id_callback' ),
-			'bc-business-central-sync',
-			'bc_api_settings'
-		);
-
-		// Client Secret setting
-		add_settings_field(
-			'bc_client_secret',
-			__( 'Client Secret', 'bc-business-central-sync' ),
-			array( $this, 'client_secret_callback' ),
-			'bc-business-central-sync',
-			'bc_api_settings'
-		);
+		// OAuth settings are now handled in a separate OAuth Settings page
 
 		// Register settings
 		register_setting( 'bc-business-central-sync', 'bc_api_url' );
 		register_setting( 'bc-business-central-sync', 'bc_company_id' );
-		register_setting( 'bc-business-central-sync', 'bc_client_id' );
-		register_setting( 'bc-business-central-sync', 'bc_client_secret' );
+		// OAuth settings (bc_client_id, bc_client_secret) are now registered in the OAuth Settings class
 	}
 
 	/**
@@ -678,27 +665,7 @@ class BC_Business_Central_Sync_Admin extends BC_Plugin_Core {
 		echo '<p class="description">' . __( 'Your Business Central company ID', 'bc-business-central-sync' ) . '</p>';
 	}
 
-	/**
-	 * Client ID callback.
-	 *
-	 * @since 1.0.0
-	 */
-	public function client_id_callback() {
-		$value = $this->get_option( 'client_id', '' );
-		echo '<input type="text" id="bc_client_id" name="bc_client_id" value="' . $this->escape_attr( $value ) . '" class="regular-text" />';
-		echo '<p class="description">' . __( 'Your Azure AD application client ID', 'bc-business-central-sync' ) . '</p>';
-	}
-
-	/**
-	 * Client secret callback.
-	 *
-	 * @since 1.0.0
-	 */
-	public function client_secret_callback() {
-		$value = $this->get_option( 'client_secret', '' );
-		echo '<input type="password" id="bc_client_secret" name="bc_client_secret" value="' . $this->escape_attr( $value ) . '" class="regular-text" />';
-		echo '<p class="description">' . __( 'Your Azure AD application client secret', 'bc-business-central-sync' ) . '</p>';
-	}
+	// OAuth callbacks have been moved to the separate OAuth Settings class
 
 	/**
 	 * Sync pricelists callback.

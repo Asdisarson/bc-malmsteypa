@@ -250,8 +250,20 @@ class BC_Business_Central_Sync {
 		// Initialize HPOS compatibility - the constructor handles all initialization
 		new BC_HPOS_Compatibility();
 		
-		// Initialize OAuth components
-		new BC_OAuth_Handler();
+		// Initialize OAuth handler (for AJAX and functionality) - Singleton pattern
+		global $bc_oauth_handler_instance;
+		if ( ! $bc_oauth_handler_instance && class_exists( 'BC_OAuth_Handler' ) ) {
+			$bc_oauth_handler_instance = new BC_OAuth_Handler();
+		}
+	}
+	
+	/**
+	 * Initialize OAuth settings after admin menu is created.
+	 *
+	 * @since 1.0.0
+	 * @access public
+	 */
+	public function init_oauth_settings() {
 		new BC_OAuth_Settings();
 	}
 
@@ -284,6 +296,9 @@ class BC_Business_Central_Sync {
 
 		// Settings
 		$this->loader->add_action( 'admin_init', $plugin_admin, 'register_settings' );
+		
+		// OAuth settings are now initialized in bc-sync-admin.php
+		// $this->loader->add_action( 'admin_menu', $this, 'init_oauth_settings', 20 );
 	}
 
 	/**

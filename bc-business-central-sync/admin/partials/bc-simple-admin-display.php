@@ -98,28 +98,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</tr>
 				
 				<tr>
-					<th scope="row">
-						<label for="bc_client_id"><?php _e( 'Client ID', 'bc-business-central-sync' ); ?></label>
-					</th>
+					<th scope="row"><?php _e( 'OAuth Authentication', 'bc-business-central-sync' ); ?></th>
 					<td>
-						<input type="text" name="bc_client_id" id="bc_client_id" 
-							   value="<?php echo esc_attr( get_option( 'bc_client_id' ) ); ?>" 
-							   class="regular-text" />
-						<p class="description"><?php _e( 'Azure AD application client ID.', 'bc-business-central-sync' ); ?></p>
+						<p class="description">
+							<?php _e( 'OAuth settings (Client ID, Client Secret, Tenant ID) are now configured in a separate page.', 'bc-business-central-sync' ); ?>
+							<br>
+							<a href="<?php echo admin_url( 'admin.php?page=bc-oauth-settings' ); ?>" class="button button-secondary">
+								<?php _e( 'Configure OAuth Settings', 'bc-business-central-sync' ); ?>
+							</a>
+						</p>
 					</td>
 				</tr>
 				
-				<tr>
-					<th scope="row">
-						<label for="bc_client_secret"><?php _e( 'Client Secret', 'bc-business-central-sync' ); ?></label>
-					</th>
-					<td>
-						<input type="password" name="bc_client_secret" id="bc_client_secret" 
-							   value="<?php echo esc_attr( get_option( 'bc_client_secret' ) ); ?>" 
-							   class="regular-text" />
-						<p class="description"><?php _e( 'Azure AD application client secret.', 'bc-business-central-sync' ); ?></p>
-					</td>
-				</tr>
+
 			</table>
 			
 			<?php submit_button( __( 'Save Settings', 'bc-business-central-sync' ) ); ?>

@@ -22,6 +22,11 @@ class BC_Company_Manager {
 			'errors_list' => array()
 		);
 
+		// Guard: Ensure we have an iterable list of companies
+		if ( empty( $companies ) || ( ! is_array( $companies ) && ! ( $companies instanceof Traversable ) ) ) {
+			return $results;
+		}
+
 		foreach ( $companies as $company ) {
 			try {
 				$result = $this->sync_single_company( $company );

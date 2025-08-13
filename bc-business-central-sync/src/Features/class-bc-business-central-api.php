@@ -91,8 +91,12 @@ class BC_Business_Central_API extends BC_Plugin_Core {
 		$this->company_id = $this->get_option( 'company_id', '' );
 		$this->client_id = $this->get_option( 'client_id', '' );
 		
-		// Initialize OAuth handler
-		$this->oauth_handler = new BC_OAuth_Handler();
+		// Initialize OAuth handler - Singleton pattern
+		global $bc_oauth_handler_instance;
+		if ( ! $bc_oauth_handler_instance && class_exists( 'BC_OAuth_Handler' ) ) {
+			$bc_oauth_handler_instance = new BC_OAuth_Handler();
+		}
+		$this->oauth_handler = $bc_oauth_handler_instance;
 		$this->client_secret = $this->get_option( 'client_secret', '' );
 	}
 

@@ -12,25 +12,79 @@ if (!defined('WPINC')) {
     die;
 }
 
-// Get OAuth handler instance
-$oauth_handler = new BC_OAuth_Handler();
-$oauth_status = $oauth_handler->get_status();
+// Handle OAuth settings form submission
+if (isset($_POST['bc_oauth_action']) && $_POST['bc_oauth_action'] === 'save_settings') {
+    // Check nonce
+    if (wp_verify_nonce($_POST['_wpnonce'], 'bc_oauth_settings_nonce')) {
+        // Check permissions
+        if (current_user_can('manage_woocommerce')) {
+            $saved = false;
+            
+            // Save Client ID
+            if (isset($_POST['bc_oauth_client_id'])) {
+                $client_id = sanitize_text_field($_POST['bc_oauth_client_id']);
+                if (!empty($client_id) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $client_id)) {
+                    update_option('bc_oauth_client_id', $client_id);
+                    $saved = true;
+                }
+            }
+            
+            // Save Client Secret
+            if (isset($_POST['bc_oauth_client_secret'])) {
+                $client_secret = sanitize_text_field($_POST['bc_oauth_client_secret']);
+                if (!empty($client_secret) && strlen($client_secret) >= 16) {
+                    update_option('bc_oauth_client_secret', $client_secret);
+                    $saved = true;
+                }
+            }
+            
+            // Save Tenant ID
+            if (isset($_POST['bc_oauth_tenant_id'])) {
+                $tenant_id = sanitize_text_field($_POST['bc_oauth_tenant_id']);
+                // Empty is valid (defaults to 'common')
+                if (empty($tenant_id) || 
+                    preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $tenant_id) ||
+                    $tenant_id === 'common') {
+                    update_option('bc_oauth_tenant_id', $tenant_id);
+                    $saved = true;
+                }
+            }
+            
+            if ($saved) {
+                // Redirect with success message
+                wp_redirect(add_query_arg('settings-updated', 'true', admin_url('admin.php?page=bc-oauth-settings')));
+                exit;
+            }
+        }
+    }
+}
+
+// Get OAuth handler instance (singleton pattern)
+global $bc_oauth_handler_instance;
+if (!$bc_oauth_handler_instance) {
+    $bc_oauth_handler_instance = new BC_OAuth_Handler();
+}
+$oauth_status = $bc_oauth_handler_instance->get_status();
 ?>
 
-<div class="wrap">
-    <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-    
-    <div class="bc-oauth-settings-container">
+    <div class="wrap">
+        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        
+        <?php if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true'): ?>
+            <div class="notice notice-success is-dismissible">
+                <p>OAuth settings updated successfully!</p>
+            </div>
+        <?php endif; ?>
+        
+        <div class="bc-oauth-settings-container">
         <!-- OAuth Configuration Section -->
         <div class="bc-oauth-section">
             <h2>OAuth Configuration</h2>
             <p>Configure your Microsoft Azure application credentials for Business Central integration.</p>
             
-            <form method="post" action="options.php" class="bc-oauth-form">
-                <?php
-                settings_fields('bc_oauth_settings');
-                do_settings_sections('bc_oauth_settings');
-                ?>
+            <form method="post" action="" class="bc-oauth-form">
+                <?php wp_nonce_field('bc_oauth_settings_nonce'); ?>
+                <input type="hidden" name="bc_oauth_action" value="save_settings" />
                 
                 <table class="form-table">
                     <tr>
@@ -62,6 +116,19 @@ $oauth_status = $oauth_handler->get_status();
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row">
+                            <label for="bc_oauth_tenant_id">Tenant ID</label>
+                        </th>
+                        <td>
+                            <input type="text" 
+                                   id="bc_oauth_tenant_id" 
+                                   name="bc_oauth_tenant_id" 
+                                   value="<?php echo esc_attr(get_option('bc_oauth_tenant_id', '')); ?>" 
+                                   class="regular-text" />
+                            <p class="description">Your Azure AD tenant ID (leave empty to use 'common' for multi-tenant apps)</p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row">Redirect URI</th>
                         <td>
                             <code><?php echo esc_html($oauth_status['redirect_uri']); ?></code>
@@ -77,7 +144,9 @@ $oauth_status = $oauth_handler->get_status();
                     </tr>
                 </table>
                 
-                <?php submit_button('Save OAuth Settings'); ?>
+                <p class="submit">
+                    <input type="submit" name="submit" id="submit" class="button button-primary" value="Save OAuth Settings">
+                </p>
             </form>
         </div>
 
@@ -200,6 +269,9 @@ $oauth_status = $oauth_handler->get_status();
 </div>
 
 <script type="text/javascript">
+// Ensure ajaxurl is available
+var ajaxurl = ajaxurl || '<?php echo admin_url('admin-ajax.php'); ?>';
+
 jQuery(document).ready(function($) {
     // OAuth Initiate
     $('#bc-oauth-initiate').on('click', function() {

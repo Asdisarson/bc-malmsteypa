@@ -281,3 +281,5 @@ add_action( 'plugins_loaded', 'bc_business_central_sync_init' );
 
 // Include BC Sync admin menu file
 require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'bc-sync-admin.php';
+
+// Debug test pages removed from admin menu to avoid clutter

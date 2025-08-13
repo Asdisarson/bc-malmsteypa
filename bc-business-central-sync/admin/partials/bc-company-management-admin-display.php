@@ -25,10 +25,16 @@ if ( isset( $_POST['action'] ) ) {
 			$company_manager = new BC_Company_Manager();
 			$sync_results = $company_manager->sync_companies( $companies );
 			
-			if ( $sync_results['errors'] === 0 ) {
+            if ( is_array( $companies ) ) {
+                $companies_count = count( $companies );
+            } else {
+                $companies_count = 0;
+            }
+
+            if ( $sync_results['errors'] === 0 ) {
 				echo '<div class="notice notice-success"><p>' . 
-					sprintf( __( 'Successfully synced %d companies. Created: %d, Updated: %d', 'bc-business-central-sync' ), 
-						count( $companies ), 
+                    sprintf( __( 'Successfully synced %d companies. Created: %d, Updated: %d', 'bc-business-central-sync' ), 
+                        $companies_count, 
 						$sync_results['created'], 
 						$sync_results['updated'] 
 					) . '</p></div>';
@@ -123,9 +129,10 @@ $pricelists = $pricelist_manager->get_all_pricelists();
 										<input type="hidden" name="action" value="update_company_pricelist">
 										<input type="hidden" name="company_id" value="<?php echo esc_attr( $company->id ); ?>">
 										
-										<select name="pricelist_id" onchange="this.form.submit()">
+                                        <?php $pricelists_list = is_array( $pricelists ) ? $pricelists : array(); ?>
+                                        <select name="pricelist_id" onchange="this.form.submit()">
 											<option value=""><?php _e( '-- Select Pricelist --', 'bc-business-central-sync' ); ?></option>
-											<?php foreach ( $pricelists as $pricelist ) : ?>
+                                            <?php foreach ( $pricelists_list as $pricelist ) : ?>
 												<option value="<?php echo esc_attr( $pricelist->id ); ?>" 
 														<?php selected( $company->pricelist_id, $pricelist->id ); ?>>
 													<?php echo esc_html( $pricelist->name . ' (' . $pricelist->code . ')' ); ?>

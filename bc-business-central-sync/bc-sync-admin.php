@@ -18,6 +18,10 @@ require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-dokobit-database
 require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-dokobit-api.php';
 require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-hpos-compatibility.php';
 
+// Include OAuth classes
+require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'src/Api/class-bc-oauth-handler.php';
+require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'src/Admin/class-bc-oauth-settings.php';
+
 // Add BC Sync admin menu - simple and direct
 function bc_sync_admin_menu() {
 	add_menu_page(
@@ -75,6 +79,16 @@ function bc_sync_admin_menu() {
 		'bc-user-management',
 		'bc_user_management_page'
 	);
+	
+	// OAuth Settings submenu
+	add_submenu_page(
+		'bc-business-central-sync',
+		'OAuth Settings',
+		'OAuth Settings',
+		'manage_woocommerce',
+		'bc-oauth-settings',
+		'bc_oauth_settings_page'
+	);
 }
 
 // BC Sync main page callback
@@ -108,8 +122,8 @@ function bc_sync_admin_page() {
 		return;
 	}
 	
-	// Include the simple admin display
-	include_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'admin/partials/bc-simple-admin-display.php';
+	// Include the comprehensive main admin display
+	include_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'templates/bc-main-admin-display.php';
 }
 
 // BC Sync submenu callbacks
@@ -158,8 +172,20 @@ function bc_user_management_page() {
 	include_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'admin/partials/bc-user-management-admin-display.php';
 }
 
+// OAuth settings page function removed - now integrated into main BC Sync page
+
 // Hook the BC Sync admin menu
 add_action( 'admin_menu', 'bc_sync_admin_menu' );
+
+// Initialize OAuth Handler (for AJAX and functionality) - Singleton pattern
+add_action( 'init', function() {
+	if ( class_exists( 'BC_OAuth_Handler' ) ) {
+		global $bc_oauth_handler_instance;
+		if ( ! $bc_oauth_handler_instance ) {
+			$bc_oauth_handler_instance = new BC_OAuth_Handler();
+		}
+	}
+});
 
 // Add AJAX handlers for sync functionality
 add_action( 'wp_ajax_bc_test_connection', 'bc_test_connection_ajax' );
@@ -612,6 +638,17 @@ function bc_client_secret_callback() {
 	$value = get_option( 'bc_client_secret', '' );
 	echo '<input type="password" name="bc_client_secret" value="' . esc_attr( $value ) . '" class="regular-text" />';
 	echo '<p class="description">Your Business Central client secret.</p>';
+}
+
+// OAuth Settings page callback
+function bc_oauth_settings_page() {
+	// Check permissions first
+	if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		wp_die( 'You do not have sufficient permissions to access this page.' );
+	}
+	
+	// Include the OAuth settings template
+	include_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'templates/bc-oauth-settings-admin-display.php';
 }
 
 // Hook for registering settings
