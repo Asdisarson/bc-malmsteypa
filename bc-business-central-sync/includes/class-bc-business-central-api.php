@@ -100,223 +100,291 @@ class BC_Business_Central_API {
 	 * @return array
 	 * @throws Exception
 	 */
-	private function make_request( $endpoint, $method = 'GET', $data = null ) {
+	public function make_request( $endpoint, $method = 'GET', $data = null ) {
 		$token = $this->get_access_token();
 		
-		$url = $this->api_url . '/companies(' . $this->company_id . ')/' . $endpoint;
+		$url = $this->api_url . '/' . $this->company_id . '/' . $endpoint;
 		
 		$args = array(
 			'method' => $method,
 			'headers' => array(
 				'Authorization' => 'Bearer ' . $token,
 				'Content-Type' => 'application/json',
+				'Accept' => 'application/json'
 			),
+			'timeout' => 30
 		);
-
+		
 		if ( $data && in_array( $method, array( 'POST', 'PUT', 'PATCH' ) ) ) {
 			$args['body'] = json_encode( $data );
 		}
-
+		
 		$response = wp_remote_request( $url, $args );
-
+		
 		if ( is_wp_error( $response ) ) {
 			throw new Exception( 'API request failed: ' . $response->get_error_message() );
 		}
-
+		
 		$status_code = wp_remote_retrieve_response_code( $response );
 		$body = wp_remote_retrieve_body( $response );
-
+		
 		if ( $status_code >= 400 ) {
 			throw new Exception( 'API error ' . $status_code . ': ' . $body );
 		}
-
-		return json_decode( $body, true );
+		
+		$data = json_decode( $body, true );
+		
+		if ( json_last_error() !== JSON_ERROR_NONE ) {
+			throw new Exception( 'Invalid JSON response: ' . $body );
+		}
+		
+		return $data;
 	}
 
 	/**
-	 * Get all products from Business Central.
+	 * Get products from Business Central.
 	 *
+	 * @param array $filters Optional filters.
 	 * @return array
 	 * @throws Exception
 	 */
-	public function get_products() {
-		$endpoint = 'items?$select=id,number,displayName,description,unitPrice,unitCost,inventory,blocked,lastModifiedDateTime';
+	public function get_products( $filters = array() ) {
+		$endpoint = 'items';
+		
+		if ( ! empty( $filters ) ) {
+			$query_params = array();
+			foreach ( $filters as $key => $value ) {
+				$query_params[] = '$filter=' . urlencode( $key . ' eq ' . $value );
+			}
+			$endpoint .= '?' . implode( '&', $query_params );
+		}
 		
 		$response = $this->make_request( $endpoint );
 		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid products response' );
-		}
-
-		return $response['value'];
+		return isset( $response['value'] ) ? $response['value'] : array();
 	}
 
 	/**
-	 * Test connection to Business Central.
-	 *
-	 * @return array
-	 * @throws Exception
-	 */
-	public function test_connection() {
-		$endpoint = 'items?$top=1&$select=id,number,displayName';
-		
-		$response = $this->make_request( $endpoint );
-		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid test response' );
-		}
-
-		// Get total count
-		$count_endpoint = 'items?$count=true';
-		$count_response = $this->make_request( $count_endpoint );
-		
-		$total_count = isset( $count_response['@odata.count'] ) ? $count_response['@odata.count'] : 0;
-
-		return array(
-			'count' => $total_count,
-			'sample' => $response['value']
-		);
-	}
-
-	/**
-	 * Get product details by ID.
+	 * Get product by ID from Business Central.
 	 *
 	 * @param string $product_id Product ID.
-	 * @return array
-	 * @throws Exception
-	 */
-	public function get_product( $product_id ) {
-		$endpoint = 'items(' . $product_id . ')?$select=id,number,displayName,description,unitPrice,unitCost,inventory,blocked,lastModifiedDateTime';
-		
-		return $this->make_request( $endpoint );
-	}
-
-	/**
-	 * Get all pricelists from Business Central.
-	 *
-	 * @return array
-	 * @throws Exception
-	 */
-	public function get_pricelists() {
-		$endpoint = 'salesPriceLists?$select=id,code,name,currencyCode,lastModifiedDateTime';
-		
-		$response = $this->make_request( $endpoint );
-		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid pricelists response' );
-		}
-
-		return $response['value'];
-	}
-
-	/**
-	 * Get pricelist lines for a specific pricelist.
-	 *
-	 * @param string $pricelist_id Pricelist ID.
-	 * @return array
-	 * @throws Exception
-	 */
-	public function get_pricelist_lines( $pricelist_id ) {
-		$endpoint = 'salesPriceLists(' . $pricelist_id . ')/salesPriceListLines?$select=id,itemId,itemNumber,unitPrice,currencyCode,startingDate,endingDate,minimumQuantity';
-		
-		$response = $this->make_request( $endpoint );
-		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid pricelist lines response' );
-		}
-
-		return $response['value'];
-	}
-
-	/**
-	 * Get all pricelist lines with item information.
-	 *
-	 * @return array
-	 * @throws Exception
-	 */
-	public function get_all_pricelist_lines() {
-		$endpoint = 'salesPriceListLines?$expand=item($select=id,number,displayName)&$select=id,salesPriceListId,itemId,itemNumber,unitPrice,currencyCode,startingDate,endingDate,minimumQuantity';
-		
-		$response = $this->make_request( $endpoint );
-		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid pricelist lines response' );
-		}
-
-		return $response['value'];
-	}
-
-	/**
-	 * Get customer company assignments.
-	 *
-	 * @return array
-	 * @throws Exception
-	 */
-	public function get_customer_companies() {
-		$endpoint = 'customers?$select=id,number,name,priceListId,priceListCode&$filter=priceListId ne null';
-		
-		$response = $this->make_request( $endpoint );
-		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid customers response' );
-		}
-
-		return $response['value'];
-	}
-
-	/**
-	 * Get customer by number.
-	 *
-	 * @param string $customer_number Customer number.
 	 * @return array|false
 	 * @throws Exception
 	 */
-	public function get_customer_by_number( $customer_number ) {
-		$endpoint = 'customers?$filter=number eq \'' . $customer_number . '\'&$select=id,number,name,priceListId,priceListCode';
+	public function get_product_by_id( $product_id ) {
+		$endpoint = 'items(' . urlencode( $product_id ) . ')';
+		
+		try {
+			$response = $this->make_request( $endpoint );
+			return $response;
+		} catch ( Exception $e ) {
+			if ( strpos( $e->getMessage(), '404' ) !== false ) {
+				return false;
+			}
+			throw $e;
+		}
+	}
+
+	/**
+	 * Get pricelists from Business Central.
+	 *
+	 * @param array $filters Optional filters.
+	 * @return array
+	 * @throws Exception
+	 */
+	public function get_pricelists( $filters = array() ) {
+		$endpoint = 'salesPriceLists';
+		
+		if ( ! empty( $filters ) ) {
+			$query_params = array();
+			foreach ( $filters as $key => $value ) {
+				$query_params[] = '$filter=' . urlencode( $key . ' eq ' . $value );
+			}
+			$endpoint .= '?' . implode( '&', $query_params );
+		}
 		
 		$response = $this->make_request( $endpoint );
 		
-		if ( ! isset( $response['value'] ) || empty( $response['value'] ) ) {
-			return false;
-		}
+		return isset( $response['value'] ) ? $response['value'] : array();
+	}
 
-		return $response['value'][0];
+	/**
+	 * Get pricelist by ID from Business Central.
+	 *
+	 * @param string $pricelist_id Pricelist ID.
+	 * @return array|false
+	 * @throws Exception
+	 */
+	public function get_pricelist_by_id( $pricelist_id ) {
+		$endpoint = 'salesPriceLists(' . urlencode( $pricelist_id ) . ')';
+		
+		try {
+			$response = $this->make_request( $endpoint );
+			return $response;
+		} catch ( Exception $e ) {
+			if ( strpos( $e->getMessage(), '404' ) !== false ) {
+				return false;
+			}
+			throw $e;
+		}
+	}
+
+	/**
+	 * Get pricelist lines from Business Central.
+	 *
+	 * @param string $pricelist_id Pricelist ID.
+	 * @param array $filters Optional filters.
+	 * @return array
+	 * @throws Exception
+	 */
+	public function get_pricelist_lines( $pricelist_id, $filters = array() ) {
+		$endpoint = 'salesPriceLists(' . urlencode( $pricelist_id ) . ')/salesPriceListLines';
+		
+		if ( ! empty( $filters ) ) {
+			$query_params = array();
+			foreach ( $filters as $key => $value ) {
+				$query_params[] = '$filter=' . urlencode( $key . ' eq ' . $value );
+			}
+			$endpoint .= '?' . implode( '&', $query_params );
+		}
+		
+		$response = $this->make_request( $endpoint );
+		
+		return isset( $response['value'] ) ? $response['value'] : array();
 	}
 
 	/**
 	 * Get companies from Business Central.
 	 *
+	 * @param array $filters Optional filters.
 	 * @return array
 	 * @throws Exception
 	 */
-	public function get_companies() {
-		$endpoint = 'companies?$select=id,name,displayName,country,currencyCode,languageId,timeZone';
+	public function get_companies( $filters = array() ) {
+		$endpoint = 'customers';
+		
+		if ( ! empty( $filters ) ) {
+			$query_params = array();
+			foreach ( $filters as $key => $value ) {
+				$query_params[] = '$filter=' . urlencode( $key . ' eq ' . $value );
+			}
+			$endpoint .= '?' . implode( '&', $query_params );
+		}
 		
 		$response = $this->make_request( $endpoint );
 		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid companies response' );
-		}
-
-		return $response['value'];
+		return isset( $response['value'] ) ? $response['value'] : array();
 	}
 
 	/**
-	 * Get customers with company information.
+	 * Get company by ID from Business Central.
+	 *
+	 * @param string $company_id Company ID.
+	 * @return array|false
+	 * @throws Exception
+	 */
+	public function get_company_by_id( $company_id ) {
+		$endpoint = 'customers(' . urlencode( $company_id ) . ')';
+		
+		try {
+			$response = $this->make_request( $endpoint );
+			return $response;
+		} catch ( Exception $e ) {
+			if ( strpos( $e->getMessage(), '404' ) !== false ) {
+				return false;
+			}
+			throw $e;
+		}
+	}
+
+	/**
+	 * Get customers from Business Central.
+	 *
+	 * @param array $filters Optional filters.
+	 * @return array
+	 * @throws Exception
+	 */
+	public function get_customers( $filters = array() ) {
+		$endpoint = 'customers';
+		
+		if ( ! empty( $filters ) ) {
+			$query_params = array();
+			foreach ( $filters as $key => $value ) {
+				$query_params[] = '$filter=' . urlencode( $key . ' eq ' . $value );
+			}
+			$endpoint .= '?' . implode( '&', $query_params );
+		}
+		
+		$response = $this->make_request( $endpoint );
+		
+		return isset( $response['value'] ) ? $response['value'] : array();
+	}
+
+	/**
+	 * Get customer by ID from Business Central.
+	 *
+	 * @param string $customer_id Customer ID.
+	 * @return array|false
+	 * @throws Exception
+	 */
+	public function get_customer_by_id( $customer_id ) {
+		$endpoint = 'customers(' . urlencode( $customer_id ) . ')';
+		
+		try {
+			$response = $this->make_request( $endpoint );
+			return $response;
+		} catch ( Exception $e ) {
+			if ( strpos( $e->getMessage(), '404' ) !== false ) {
+				return false;
+			}
+			throw $e;
+		}
+	}
+
+	/**
+	 * Test the API connection.
 	 *
 	 * @return array
 	 * @throws Exception
 	 */
-	public function get_customers_with_companies() {
-		$endpoint = 'customers?$select=id,number,name,companyName,priceListId,priceListCode&$filter=companyName ne null';
-		
-		$response = $this->make_request( $endpoint );
-		
-		if ( ! isset( $response['value'] ) ) {
-			throw new Exception( 'Invalid customers response' );
+	public function test_connection() {
+		try {
+			// Try to get a simple endpoint to test connection
+			$response = $this->make_request( 'customers?$top=1' );
+			
+			return array(
+				'success' => true,
+				'message' => 'Connection successful',
+				'data' => $response
+			);
+		} catch ( Exception $e ) {
+			return array(
+				'success' => false,
+				'message' => 'Connection failed: ' . $e->getMessage(),
+				'error' => $e->getMessage()
+			);
 		}
-
-		return $response['value'];
 	}
 
+	/**
+	 * Get API status and limits.
+	 *
+	 * @return array
+	 * @throws Exception
+	 */
+	public function get_api_status() {
+		try {
+			$response = $this->make_request( '$metadata' );
+			
+			return array(
+				'success' => true,
+				'data' => $response
+			);
+		} catch ( Exception $e ) {
+			return array(
+				'success' => false,
+				'error' => $e->getMessage()
+			);
+		}
+	}
 }

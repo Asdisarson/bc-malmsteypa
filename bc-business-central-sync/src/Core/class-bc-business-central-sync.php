@@ -249,6 +249,10 @@ class BC_Business_Central_Sync {
 	private function init_hpos_compatibility() {
 		// Initialize HPOS compatibility - the constructor handles all initialization
 		new BC_HPOS_Compatibility();
+		
+		// Initialize OAuth components
+		new BC_OAuth_Handler();
+		new BC_OAuth_Settings();
 	}
 
 	// =============================================================================

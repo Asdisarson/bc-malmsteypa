@@ -116,12 +116,24 @@ function bc_business_central_sync_init() {
 		return;
 	}
 
-	// Load the main plugin class
-	require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-business-central-sync.php';
+	// Load and register the autoloader
+	require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'includes/class-bc-autoloader.php';
+	BC_Autoloader::register();
 	
 	// Initialize the plugin
 	$plugin = new BC_Business_Central_Sync();
+	
+	// Debug: Check if plugin was created
+	if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+		error_log( 'BC Sync: Plugin instance created: ' . get_class( $plugin ) );
+	}
+	
 	$plugin->run();
+	
+	// Debug: Check if run method completed
+	if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+		error_log( 'BC Sync: Plugin run() method completed' );
+	}
 }
 
 // =============================================================================
@@ -266,3 +278,6 @@ register_deactivation_hook( __FILE__, 'bc_business_central_sync_deactivate' );
 
 // Initialize the plugin after WordPress is loaded
 add_action( 'plugins_loaded', 'bc_business_central_sync_init' );
+
+// Include BC Sync admin menu file
+require_once BC_BUSINESS_CENTRAL_SYNC_PATH . 'bc-sync-admin.php';

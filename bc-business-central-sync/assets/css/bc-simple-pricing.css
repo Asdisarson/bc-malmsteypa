@@ -1,0 +1,220 @@
+/**
+ * Simple Pricing System Styles
+ * 
+ * Clean, modern styling for the customer pricing interface
+ */
+
+/* Customer Selector */
+.bc-customer-selector {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.bc-customer-selector label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 16px;
+}
+
+.bc-customer-selector select {
+    width: 100%;
+    max-width: 400px;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 15px;
+    background: white;
+    transition: border-color 0.3s ease;
+}
+
+.bc-customer-selector select:focus {
+    outline: none;
+    border-color: #007cba;
+    box-shadow: 0 0 0 3px rgba(0, 124, 186, 0.1);
+}
+
+.bc-customer-selector button {
+    background: #007cba;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.bc-customer-selector button:hover {
+    background: #005a87;
+}
+
+.bc-customer-selector button:active {
+    transform: translateY(1px);
+}
+
+/* Customer Pricing Info */
+.bc-customer-pricing-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.bc-customer-price {
+    margin-bottom: 15px;
+}
+
+.bc-customer-price strong {
+    font-size: 16px;
+    display: block;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.bc-customer-price .price {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.bc-customer-savings {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.bc-customer-savings strong {
+    display: inline;
+    margin-right: 5px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .bc-customer-selector {
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .bc-customer-selector select {
+        max-width: 100%;
+        margin-bottom: 12px;
+    }
+    
+    .bc-customer-selector button {
+        width: 100%;
+        padding: 15px;
+    }
+    
+    .bc-customer-pricing-info {
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .bc-customer-price .price {
+        font-size: 20px;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .bc-customer-selector {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+    
+    .bc-customer-selector label {
+        color: #e2e8f0;
+    }
+    
+    .bc-customer-selector select {
+        background: #4a5568;
+        border-color: #718096;
+        color: #e2e8f0;
+    }
+    
+    .bc-customer-selector select:focus {
+        border-color: #63b3ed;
+        box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.1);
+    }
+}
+
+/* Loading States */
+.bc-customer-selector.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.bc-customer-selector.loading button {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+/* Success States */
+.bc-customer-selector.success {
+    border-color: #28a745;
+    background: #f8fff9;
+}
+
+.bc-customer-selector.success .notice {
+    color: #28a745;
+    font-weight: 600;
+}
+
+/* Error States */
+.bc-customer-selector.error {
+    border-color: #dc3545;
+    background: #fff8f8;
+}
+
+.bc-customer-selector.error .notice {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+/* Animation for price updates */
+.bc-customer-pricing-info {
+    animation: slideInUp 0.5s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Hover effects */
+.bc-customer-pricing-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+}
+
+/* Focus states for accessibility */
+.bc-customer-selector select:focus,
+.bc-customer-selector button:focus {
+    outline: 2px solid #007cba;
+    outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+    .bc-customer-selector,
+    .bc-customer-pricing-info {
+        display: none;
+    }
+}

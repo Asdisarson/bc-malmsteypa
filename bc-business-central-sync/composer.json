@@ -1,0 +1,31 @@
+{
+    "name": "malmsteypa/bc-business-central-sync",
+    "description": "Professional B2B integration plugin that automatically syncs products from Microsoft Dynamics 365 Business Central to WooCommerce",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0+",
+    "authors": [
+        {
+            "name": "Malmsteypa",
+            "homepage": "https://malmsteypa.is"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "BC_Business_Central_Sync\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BC_Business_Central_Sync\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
