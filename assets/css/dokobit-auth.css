@@ -1,0 +1,139 @@
+.dokobit-login-container {
+	max-width: 400px;
+	margin: 20px auto;
+	padding: 30px;
+	background: #fff;
+	border-radius: 8px;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dokobit-login-form h3 {
+	margin-top: 0;
+	margin-bottom: 25px;
+	text-align: center;
+	color: #333;
+}
+
+.dokobit-form-group {
+	margin-bottom: 20px;
+}
+
+.dokobit-form-group label {
+	display: block;
+	margin-bottom: 8px;
+	font-weight: 600;
+	color: #555;
+}
+
+.dokobit-form-group input {
+	width: 100%;
+	padding: 12px 15px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	font-size: 16px;
+	transition: border-color 0.3s;
+}
+
+.dokobit-form-group input:focus {
+	outline: none;
+	border-color: #0073aa;
+}
+
+.dokobit-help-text {
+	margin-top: 5px;
+	font-size: 13px;
+	color: #666;
+}
+
+.dokobit-submit-btn {
+	width: 100%;
+	padding: 12px 20px;
+	background: #0073aa;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	font-size: 16px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.3s;
+}
+
+.dokobit-submit-btn:hover:not(:disabled) {
+	background: #005a87;
+}
+
+.dokobit-submit-btn:disabled {
+	background: #ccc;
+	cursor: not-allowed;
+}
+
+.dokobit-message {
+	margin-top: 20px;
+	padding: 12px 15px;
+	border-radius: 4px;
+	text-align: center;
+}
+
+.dokobit-message.error {
+	background: #fee;
+	color: #c00;
+	border: 1px solid #fcc;
+}
+
+.dokobit-message.success {
+	background: #efe;
+	color: #080;
+	border: 1px solid #cfc;
+}
+
+.dokobit-auth-info {
+	margin-top: 20px;
+	padding: 20px;
+	background: #f5f5f5;
+	border-radius: 4px;
+	text-align: center;
+}
+
+.dokobit-auth-info p {
+	margin: 10px 0;
+}
+
+.dokobit-auth-info strong {
+	font-size: 24px;
+	color: #0073aa;
+}
+
+.dokobit-spinner {
+	margin: 20px auto 0;
+	width: 40px;
+	height: 40px;
+	border: 4px solid #f3f3f3;
+	border-top: 4px solid #0073aa;
+	border-radius: 50%;
+	animation: dokobit-spin 1s linear infinite;
+}
+
+@keyframes dokobit-spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+.dokobit-company-info {
+	padding: 20px;
+	background: #f9f9f9;
+	border-left: 4px solid #0073aa;
+	margin: 20px 0;
+}
+
+.dokobit-company-info h3 {
+	margin-top: 0;
+	color: #333;
+}
+
+.dokobit-company-info p {
+	font-size: 18px;
+	color: #555;
+	margin: 10px 0;
+}
+
+
