@@ -19,11 +19,13 @@ class Business_Central_Connector {
         add_action('wp_ajax_bcc_save_customers', array($this, 'ajax_save_customers'));
 		add_action('wp_ajax_bcc_fetch_categories', array($this, 'ajax_fetch_categories'));
 		add_action('wp_ajax_bcc_save_categories', array($this, 'ajax_save_categories'));
-		add_action('wp_ajax_bcc_fetch_items', array($this, 'ajax_fetch_items'));
+		        add_action('wp_ajax_bcc_fetch_items', array($this, 'ajax_fetch_items'));
 		add_action('wp_ajax_bcc_save_items', array($this, 'ajax_save_items'));
-        // OAuth callback via admin-ajax as per fixed callback URL
-        add_action('wp_ajax_bc_oauth_callback', array($this, 'ajax_oauth_callback'));
-        add_action('wp_ajax_nopriv_bc_oauth_callback', array($this, 'ajax_oauth_callback'));
+        // Product sync AJAX handlers
+        add_action('wp_ajax_bcc_fetch_items', array($this, 'ajax_fetch_items'));
+        add_action('wp_ajax_bcc_save_items', array($this, 'ajax_save_items'));
+        add_action('wp_ajax_bcc_enhanced_product_sync', array($this, 'ajax_enhanced_product_sync'));
+        add_action('wp_ajax_bcc_get_sync_status', array($this, 'ajax_get_sync_status'));
     }
     
     /**
@@ -96,14 +98,71 @@ class Business_Central_Connector {
         if (isset($_GET['code'])) {
             $this->handle_authorization_code(sanitize_text_field($_GET['code']));
             $result = 'success';
-        } elseif (isset($_GET['error'])) {
-            $this->handle_oauth_error(sanitize_text_field($_GET['error']), isset($_GET['error_description']) ? sanitize_text_field($_GET['error_description']) : '');
-            $result = 'error';
         }
-        // Redirect back to the settings page with a status
-        $redirect = admin_url('admin.php?page=business-central-connector&bcc_oauth=' . $result);
-        wp_safe_redirect($redirect);
-        exit;
+    }
+
+    /**
+     * Handle OAuth callback from Azure AD
+     */
+    public function handle_oauth_callback() {
+        // Check if we have an authorization code
+        if (!isset($_GET['code'])) {
+            wp_die('Authorization code not received');
+        }
+
+        $code = sanitize_text_field($_GET['code']);
+        $settings = $this->get_settings();
+        
+        if (empty($settings['tenant_id']) || empty($settings['client_id']) || empty($settings['client_secret'])) {
+            wp_die('Missing OAuth configuration');
+        }
+
+        try {
+            // Exchange authorization code for access token
+            $token_response = wp_remote_post("https://login.microsoftonline.com/{$settings['tenant_id']}/oauth2/v2.0/token", [
+                'body' => [
+                    'client_id' => $settings['client_id'],
+                    'client_secret' => $settings['client_secret'],
+                    'code' => $code,
+                    'grant_type' => 'authorization_code',
+                    'redirect_uri' => $settings['callback_url'] ?? admin_url('admin-ajax.php?action=bc_oauth_callback'),
+                    'scope' => 'https://api.businesscentral.dynamics.com/.default'
+                ],
+                'timeout' => 30
+            ]);
+
+            if (is_wp_error($token_response)) {
+                throw new Exception('Token request failed: ' . $token_response->get_error_message());
+            }
+
+            $token_data = json_decode(wp_remote_retrieve_body($token_response), true);
+            
+            if (empty($token_data['access_token'])) {
+                throw new Exception('No access token received: ' . wp_remote_retrieve_body($token_response));
+            }
+
+            // Store the access token
+            $settings['access_token'] = $token_data['access_token'];
+            $settings['token_expires'] = time() + ($token_data['expires_in'] ?? 3600);
+            $settings['connection_status'] = 'connected';
+            
+            update_option('bcc_settings', $settings);
+
+            // Clear any cached tokens
+            delete_transient('bcwoo_token');
+
+            // Redirect back to admin with success message
+            wp_redirect(admin_url('admin.php?page=business-central-connector&bcc_oauth=success'));
+            exit;
+
+                } catch (Exception $e) {
+            // Log the error
+            error_log('[BCC] OAuth callback failed: ' . $e->getMessage());
+            
+            // Redirect back to admin with error message
+            wp_redirect(admin_url('admin.php?page=business-central-connector&bcc_oauth=error'));
+            exit;
+        }
     }
     
     /**
@@ -244,7 +303,7 @@ class Business_Central_Connector {
         }
 
         // Build URL per required structure
-        $url = $baseUrl . 'v2.0/' . rawurlencode($tenantId) . '/' . rawurlencode($env) . '/api/' . rawurlencode($apiVersion) . '/companies(' . rawurlencode($companyId) . ')/customers?%24top=10';
+        $url = $baseUrl . 'v2.0/' . rawurlencode($tenantId) . '/' . rawurlencode($env) . '/api/' . rawurlencode($apiVersion) . '/companies(' . rawurlencode($companyId) . ')/customers';
 
         try {
             $token = $this->get_access_token();
@@ -297,59 +356,28 @@ class Business_Central_Connector {
 			wp_send_json_error('Unauthorized');
 		}
 
-		$settings = $this->get_settings();
-		$tenantId = isset($settings['tenant_id']) ? trim($settings['tenant_id']) : '';
-		$env = isset($settings['bc_environment']) ? trim($settings['bc_environment']) : '';
-		$companyId = isset($settings['company_id']) ? trim($settings['company_id']) : '';
-		$apiVersion = isset($settings['api_version']) ? trim($settings['api_version']) : 'v2.0';
-		$baseUrl = rtrim($settings['base_url'], '/') . '/';
-
-		if ($tenantId === '' || $env === '' || $companyId === '') {
-			wp_send_json_error('Missing tenant, environment, or company ID');
-		}
-
-		$url = $baseUrl . 'v2.0/' . rawurlencode($tenantId) . '/' . rawurlencode($env) . '/api/' . rawurlencode($apiVersion) . '/companies(' . rawurlencode($companyId) . ')/itemCategories';
-
 		try {
-			$token = $this->get_access_token();
+			$settings = $this->get_settings();
+			$company_id = $settings['company_id'];
+			
+			if (empty($company_id)) {
+				wp_send_json_error('Missing company ID');
+			}
+
+			// Use BCWoo_Client for consistent API handling
+			$bc_client = new BCWoo_Client();
+			
+			// Test connection first
+			$bc_client->test_connection();
+			
+			// Fetch categories
+			$data = $bc_client->get_item_categories($company_id);
+			
+			wp_send_json_success($data);
+			
 		} catch (Exception $e) {
-			wp_send_json_error('Auth error: ' . $e->getMessage());
+			wp_send_json_error('Failed to fetch categories: ' . $e->getMessage());
 		}
-
-		$ch = curl_init();
-		curl_setopt_array($ch, array(
-			CURLOPT_URL => $url,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_ENCODING => '',
-			CURLOPT_MAXREDIRS => 10,
-			CURLOPT_TIMEOUT => 30,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-			CURLOPT_CUSTOMREQUEST => 'GET',
-			CURLOPT_HTTPHEADER => array(
-				'Accept: application/json',
-				'Authorization: Bearer ' . $token
-			),
-		));
-
-		$response = curl_exec($ch);
-		if ($response === false) {
-			$err = curl_error($ch);
-			curl_close($ch);
-			wp_send_json_error('cURL error: ' . $err);
-		}
-		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-		curl_close($ch);
-
-		if ($httpCode >= 400) {
-			wp_send_json_error('HTTP ' . $httpCode . ': ' . $response);
-		}
-
-		$data = json_decode($response, true);
-		if ($data === null) {
-			wp_send_json_error('Invalid JSON response');
-		}
-		wp_send_json_success($data);
 	}
 
 	/**
@@ -478,65 +506,47 @@ class Business_Central_Connector {
 	 * AJAX: Fetch Items (Products)
 	 */
 	public function ajax_fetch_items() {
-		check_ajax_referer('bcc_nonce', 'nonce');
-		if (!current_user_can('manage_options')) {
-			wp_send_json_error('Unauthorized');
-		}
+        check_ajax_referer('bcc_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
 
-		$settings = $this->get_settings();
-		$tenantId = isset($settings['tenant_id']) ? trim($settings['tenant_id']) : '';
-		$env = isset($settings['bc_environment']) ? trim($settings['bc_environment']) : '';
-		$companyId = isset($settings['company_id']) ? trim($settings['company_id']) : '';
-		$apiVersion = isset($settings['api_version']) ? trim($settings['api_version']) : 'v2.0';
-		$baseUrl = rtrim($settings['base_url'], '/') . '/';
+        try {
+            $settings = $this->get_settings();
+            $company_id = $settings['company_id'];
+            
+            if (empty($company_id)) {
+                wp_send_json_error('Missing company ID');
+            }
 
-		if ($tenantId === '' || $env === '' || $companyId === '') {
-			wp_send_json_error('Missing tenant, environment, or company ID');
-		}
-
-		$url = $baseUrl . 'v2.0/' . rawurlencode($tenantId) . '/' . rawurlencode($env) . '/api/' . rawurlencode($apiVersion) . '/companies(' . rawurlencode($companyId) . ')/items';
-
-		try {
-			$token = $this->get_access_token();
-		} catch (Exception $e) {
-			wp_send_json_error('Auth error: ' . $e->getMessage());
-		}
-
-		$ch = curl_init();
-		curl_setopt_array($ch, array(
-			CURLOPT_URL => $url,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_ENCODING => '',
-			CURLOPT_MAXREDIRS => 10,
-			CURLOPT_TIMEOUT => 30,
-			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-			CURLOPT_CUSTOMREQUEST => 'GET',
-			CURLOPT_HTTPHEADER => array(
-				'Accept: application/json',
-				'Authorization: Bearer ' . $token
-			),
-		));
-
-		$response = curl_exec($ch);
-		if ($response === false) {
-			$err = curl_error($ch);
-			curl_close($ch);
-			wp_send_json_error('cURL error: ' . $err);
-		}
-		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-		curl_close($ch);
-
-		if ($httpCode >= 400) {
-			wp_send_json_error('HTTP ' . $httpCode . ': ' . $response);
-		}
-
-		$data = json_decode($response, true);
-		if ($data === null) {
-			wp_send_json_error('Invalid JSON response');
-		}
-		wp_send_json_success($data);
-	}
+            // Use BCWoo_Client for consistent API handling
+            $bc_client = new BCWoo_Client();
+            
+            // Test connection first
+            $bc_client->test_connection();
+            
+            // Fetch items with picture expansion
+            $data = $bc_client->list_items($company_id, null, 100);
+            
+            // Log information about fetched items and image data
+            $items_with_images = 0;
+            $total_items = 0;
+            if (isset($data['value']) && is_array($data['value'])) {
+                $total_items = count($data['value']);
+                foreach ($data['value'] as $item) {
+                    if (isset($item['picture']) && !empty($item['picture'])) {
+                        $items_with_images++;
+                    }
+                }
+            }
+            error_log('[BC Fetch Items] Fetched ' . $total_items . ' items, ' . $items_with_images . ' with image data');
+            
+            wp_send_json_success($data);
+            
+        } catch (Exception $e) {
+            wp_send_json_error('Failed to fetch items: ' . $e->getMessage());
+        }
+    }
 
 	/**
 	 * AJAX: Save Items to WooCommerce Products
@@ -563,20 +573,325 @@ class Business_Central_Connector {
 			'errors' => array()
 		);
 
+		$total_items = count($items);
+		$processed_items = 0;
+		$items_with_images = 0;
+		
+		error_log('[BC Bulk Sync] ===== Starting bulk sync of ' . $total_items . ' items =====');
+		
 		foreach ($items as $item) {
+			$processed_items++;
+			$item_number = isset($item['number']) ? $item['number'] : 'Unknown';
+			$has_image = isset($item['picture']) && !empty($item['picture']);
+			
+			if ($has_image) {
+				$items_with_images++;
+			}
+			
+			error_log('[BC Bulk Sync] Processing item ' . $processed_items . '/' . $total_items . ' (' . $item_number . ') - Has image: ' . ($has_image ? 'Yes' : 'No'));
+			
 			try {
 				$action = $this->upsert_product_from_item($item);
 				if ($action === 'created') {
 					$result['created']++;
+					error_log('[BC Bulk Sync] ✓ Created product: ' . $item_number);
 				} elseif ($action === 'updated') {
 					$result['updated']++;
+					error_log('[BC Bulk Sync] ✓ Updated product: ' . $item_number);
 				}
 			} catch (Exception $e) {
-				$result['errors'][] = $e->getMessage();
+				$error_msg = $e->getMessage();
+				$result['errors'][] = $error_msg;
+				error_log('[BC Bulk Sync] ✗ ERROR processing item ' . $item_number . ': ' . $error_msg);
 			}
 		}
+		
+		error_log('[BC Bulk Sync] ===== Bulk sync completed =====');
+		error_log('[BC Bulk Sync] Total items: ' . $total_items);
+		error_log('[BC Bulk Sync] Items with images: ' . $items_with_images);
+		error_log('[BC Bulk Sync] Created: ' . $result['created']);
+		error_log('[BC Bulk Sync] Updated: ' . $result['updated']);
+		error_log('[BC Bulk Sync] Errors: ' . count($result['errors']));
 
 		wp_send_json_success($result);
+	}
+
+	/**
+	 * Process product image data from Business Central
+	 */
+	private function process_product_image($product_id, $picture_data, $bc_item_data) {
+		error_log('[BC Product Sync] ===== Starting image processing for product ' . $product_id . ' =====');
+		
+		// Get access token for image download
+		$token = $this->get_access_token();
+		if (!$token) {
+			error_log('[BC Product Sync] ERROR: Missing access token for image processing');
+			return;
+		}
+		error_log('[BC Product Sync] ✓ Access token retrieved successfully');
+
+		// Extract picture URL from the picture data
+		$picture_url = $this->resolve_picture_url($picture_data, $bc_item_data, $product_id);
+		
+		if (!$picture_url) {
+			error_log('[BC Product Sync] ERROR: Could not resolve picture URL for product ' . $product_id);
+			return;
+		}
+
+		// Download and attach the image
+		try {
+			error_log('[BC Product Sync] Starting image download process...');
+			$attachment_id = $this->download_and_attach_image($picture_url, $token, $product_id);
+			
+			if ($attachment_id && !is_wp_error($attachment_id)) {
+				$this->set_product_featured_image($product_id, $attachment_id);
+			} else {
+				error_log('[BC Product Sync] ERROR: Failed to create attachment for product ' . $product_id);
+			}
+		} catch (Exception $e) {
+			error_log('[BC Product Sync] ERROR: Failed to process image for product ' . $product_id . ': ' . $e->getMessage());
+		}
+		
+		error_log('[BC Product Sync] ===== Completed image processing for product ' . $product_id . ' =====');
+	}
+
+	/**
+	 * Resolve picture URL from Business Central picture data
+	 */
+	private function resolve_picture_url($picture_data, $bc_item_data, $product_id) {
+		error_log('[BC URL Resolution] Starting URL resolution for product ' . $product_id);
+		error_log('[BC URL Resolution] Picture data structure: ' . json_encode($picture_data));
+		
+		$picture_url = null;
+		
+		// Handle different picture data structures
+		if (is_array($picture_data) && isset($picture_data[0])) {
+			error_log('[BC URL Resolution] Processing collection-based picture data');
+			// Picture is a collection (v22+)
+			if (isset($picture_data[0]['content@odata.mediaReadLink'])) {
+				$picture_url = $picture_data[0]['content@odata.mediaReadLink'];
+				error_log('[BC URL Resolution] ✓ Found content@odata.mediaReadLink in collection: ' . $picture_url);
+			} elseif (isset($picture_data[0]['pictureContent@odata.mediaReadLink'])) {
+				// Business Central v22+ with pictureContent structure
+				$picture_url = $picture_data[0]['pictureContent@odata.mediaReadLink'];
+				error_log('[BC URL Resolution] ✓ Found pictureContent@odata.mediaReadLink in collection: ' . $picture_url);
+			} elseif (isset($picture_data[0]['id'])) {
+				// Build content URL from picture ID
+				$settings = $this->get_settings();
+				$base_url = rtrim($settings['base_url'], '/') . '/v2.0/' . $settings['tenant_id'] . '/' . $settings['bc_environment'] . '/api/' . $settings['api_version'];
+				$picture_url = $base_url . '/companies(' . $settings['company_id'] . ')/items(' . $bc_item_data['id'] . ')/picture(' . $picture_data[0]['id'] . ')/content';
+				error_log('[BC URL Resolution] ✓ Built content URL from picture ID: ' . $picture_url);
+			}
+		} elseif (is_array($picture_data) && isset($picture_data['content@odata.mediaReadLink'])) {
+			error_log('[BC URL Resolution] Processing single picture with content@odata.mediaReadLink');
+			// Picture is a single navigation property
+			$picture_url = $picture_data['content@odata.mediaReadLink'];
+			error_log('[BC URL Resolution] ✓ Found content@odata.mediaReadLink in single picture: ' . $picture_url);
+		} elseif (is_array($picture_data) && isset($picture_data['pictureContent@odata.mediaReadLink'])) {
+			error_log('[BC URL Resolution] Processing single picture with pictureContent@odata.mediaReadLink');
+			// Business Central v22+ with pictureContent structure (single picture)
+			$picture_url = $picture_data['pictureContent@odata.mediaReadLink'];
+			error_log('[BC URL Resolution] ✓ Found pictureContent@odata.mediaReadLink in single picture: ' . $picture_url);
+		}
+
+		if ($picture_url) {
+			error_log('[BC URL Resolution] ✓ Successfully resolved picture URL: ' . $picture_url);
+		} else {
+			error_log('[BC URL Resolution] ✗ Failed to resolve picture URL from data structure');
+		}
+		
+		return $picture_url;
+	}
+
+	/**
+	 * Set product featured image if different from current
+	 */
+	private function set_product_featured_image($product_id, $attachment_id) {
+		error_log('[BC Featured Image] Setting featured image for product ' . $product_id . ' (attachment ID: ' . $attachment_id . ')');
+		
+		// Get current featured image
+		$current_thumb = get_post_thumbnail_id($product_id);
+		error_log('[BC Featured Image] Current featured image ID: ' . ($current_thumb ?: 'none'));
+		
+		if ((int)$current_thumb !== (int)$attachment_id) {
+			// Set new featured image
+			$result = set_post_thumbnail($product_id, $attachment_id);
+			if ($result) {
+				error_log('[BC Featured Image] ✓ Successfully set new featured image for product ' . $product_id . ' (attachment ID: ' . $attachment_id . ')');
+			} else {
+				error_log('[BC Featured Image] ✗ Failed to set featured image for product ' . $product_id);
+			}
+		} else {
+			error_log('[BC Featured Image] ✓ Image already set as featured image for product ' . $product_id);
+		}
+	}
+
+	/**
+	 * Download image from Business Central and attach to product
+	 */
+	private function download_and_attach_image($image_url, $token, $product_id) {
+		error_log('[BC Image Download] ===== Starting image download for product ' . $product_id . ' =====');
+		error_log('[BC Image Download] Download URL: ' . $image_url);
+		error_log('[BC Image Download] Token length: ' . strlen($token) . ' characters');
+		
+		// Download image with authentication and increased timeout
+		$response = wp_remote_get($image_url, array(
+			'headers' => array(
+				'Authorization' => 'Bearer ' . $token,
+				'Accept' => 'image/*'
+			),
+			'timeout' => 120, // Increased timeout to 2 minutes
+			'stream' => false,
+			'redirection' => 5
+		));
+
+		if (is_wp_error($response)) {
+			$error_message = $response->get_error_message();
+			error_log('[BC Image Download] ✗ WP Error during download: ' . $error_message);
+			throw new Exception('Failed to download image: ' . $error_message);
+		}
+
+		$status_code = wp_remote_retrieve_response_code($response);
+		$response_headers = wp_remote_retrieve_headers($response);
+		error_log('[BC Image Download] HTTP response code: ' . $status_code);
+		error_log('[BC Image Download] Response headers: ' . json_encode($response_headers));
+		
+		if ($status_code !== 200) {
+			$response_body = wp_remote_retrieve_body($response);
+			error_log('[BC Image Download] ✗ HTTP error response body: ' . $response_body);
+			throw new Exception('Image download failed with HTTP ' . $status_code . ' - ' . $response_body);
+		}
+
+		$image_data = wp_remote_retrieve_body($response);
+		$content_type = wp_remote_retrieve_header($response, 'content-type');
+		$content_length = wp_remote_retrieve_header($response, 'content-length');
+		
+		error_log('[BC Image Download] ✓ Download successful');
+		error_log('[BC Image Download] Content type: ' . $content_type);
+		error_log('[BC Image Download] Content length header: ' . ($content_length ?: 'not set'));
+		error_log('[BC Image Download] Actual image size: ' . strlen($image_data) . ' bytes');
+		
+		// Validate image data
+		if (empty($image_data)) {
+			error_log('[BC Image Download] ✗ ERROR: Downloaded image data is empty');
+			throw new Exception('Downloaded image data is empty');
+		}
+		
+		// Determine file extension from content type
+		$extension = $this->get_extension_from_mime_type($content_type);
+		error_log('[BC Image Download] Determined file extension: ' . $extension);
+		
+		// Create temporary file
+		$temp_file = wp_tempnam('bc_image_' . $product_id . '.' . $extension);
+		if (!$temp_file) {
+			error_log('[BC Image Download] ✗ ERROR: Failed to create temporary file');
+			throw new Exception('Failed to create temporary file');
+		}
+		error_log('[BC Image Download] ✓ Temporary file created: ' . $temp_file);
+		
+		// Write image data to temp file
+		$bytes_written = file_put_contents($temp_file, $image_data);
+		if ($bytes_written === false) {
+			error_log('[BC Image Download] ✗ ERROR: Failed to write image data to temp file');
+			@unlink($temp_file);
+			throw new Exception('Failed to write image data to temporary file');
+		}
+		error_log('[BC Image Download] ✓ Image data written to temp file: ' . $bytes_written . ' bytes');
+		
+		// Verify temp file
+		$temp_file_size = filesize($temp_file);
+		error_log('[BC Image Download] Temp file size: ' . $temp_file_size . ' bytes');
+		
+		if ($temp_file_size !== strlen($image_data)) {
+			error_log('[BC Image Download] ⚠️ WARNING: Temp file size mismatch. Expected: ' . strlen($image_data) . ', Actual: ' . $temp_file_size);
+		}
+		
+		// Prepare file array for WordPress media handling
+		$file_array = array(
+			'name' => 'bc-product-image-' . $product_id . '.' . $extension,
+			'type' => $content_type ?: 'image/jpeg',
+			'tmp_name' => $temp_file,
+			'error' => 0,
+			'size' => $temp_file_size
+		);
+		error_log('[BC Image Download] File array prepared: ' . json_encode($file_array));
+		
+		// Handle the file upload via WordPress sideload
+		error_log('[BC Image Download] Starting WordPress sideload process...');
+		$overrides = array('test_form' => false);
+		$results = wp_handle_sideload($file_array, $overrides);
+		
+		if (isset($results['error'])) {
+			error_log('[BC Image Download] ✗ ERROR: WordPress sideload failed: ' . $results['error']);
+			@unlink($temp_file);
+			throw new Exception('File sideload failed: ' . $results['error']);
+		}
+		
+		error_log('[BC Image Download] ✓ WordPress sideload successful');
+		error_log('[BC Image Download] Sideload results: ' . json_encode($results));
+		
+		// Create attachment post
+		$attachment = array(
+			'post_mime_type' => $results['type'],
+			'post_title' => get_the_title($product_id),
+			'post_content' => '',
+			'post_status' => 'inherit'
+		);
+		
+		error_log('[BC Image Download] Creating attachment post...');
+		error_log('[BC Image Download] Attachment data: ' . json_encode($attachment));
+		error_log('[BC Image Download] File path: ' . $results['file']);
+		
+		$attachment_id = wp_insert_attachment($attachment, $results['file'], $product_id);
+		
+		if (is_wp_error($attachment_id)) {
+			$error_message = $attachment_id->get_error_message();
+			error_log('[BC Image Download] ✗ ERROR: Failed to create attachment: ' . $error_message);
+			throw new Exception('Failed to create attachment: ' . $error_message);
+		}
+		
+		error_log('[BC Image Download] ✓ Attachment post created with ID: ' . $attachment_id);
+		
+		// Generate attachment metadata
+		error_log('[BC Image Download] Generating attachment metadata...');
+		if (!function_exists('wp_generate_attachment_metadata')) {
+			error_log('[BC Image Download] Loading image.php for metadata generation');
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+		}
+		
+		$attachment_data = wp_generate_attachment_metadata($attachment_id, $results['file']);
+		if (is_wp_error($attachment_data)) {
+			error_log('[BC Image Download] ⚠️ WARNING: Metadata generation returned error: ' . $attachment_data->get_error_message());
+		} else {
+			error_log('[BC Image Download] ✓ Metadata generated successfully: ' . json_encode($attachment_data));
+		}
+		
+		$metadata_result = wp_update_attachment_metadata($attachment_id, $attachment_data);
+		if (is_wp_error($metadata_result)) {
+			error_log('[BC Image Download] ⚠️ WARNING: Failed to update attachment metadata: ' . $metadata_result->get_error_message());
+		} else {
+			error_log('[BC Image Download] ✓ Attachment metadata updated successfully');
+		}
+		
+		error_log('[BC Image Download] ===== Image download and attachment completed for product ' . $product_id . ' =====');
+		return $attachment_id;
+	}
+
+	/**
+	 * Get file extension from MIME type
+	 */
+	private function get_extension_from_mime_type($mime_type) {
+		$mime_map = array(
+			'image/jpeg' => 'jpg',
+			'image/jpg' => 'jpg',
+			'image/png' => 'png',
+			'image/gif' => 'gif',
+			'image/webp' => 'webp',
+			'image/bmp' => 'bmp',
+			'image/tiff' => 'tif'
+		);
+		
+		return isset($mime_map[$mime_type]) ? $mime_map[$mime_type] : 'jpg';
 	}
 
 	/**
@@ -711,6 +1026,21 @@ class Business_Central_Connector {
 			'post_title' => $title,
 			'post_excerpt' => $subtitle
 		));
+
+		// Process image data if available
+		if (isset($bcItem['picture']) && !empty($bcItem['picture'])) {
+			$start_time = microtime(true);
+			error_log('[BC Product Sync] Processing image data for product ' . $product_id . ' with picture data: ' . json_encode($bcItem['picture']));
+			$this->process_product_image($product_id, $bcItem['picture'], $bcItem);
+			$end_time = microtime(true);
+			$processing_time = round(($end_time - $start_time) * 1000, 2);
+			error_log('[BC Product Sync] Image processing completed for product ' . $product_id . ' in ' . $processing_time . 'ms');
+		} else {
+			error_log('[BC Product Sync] No image data found for product ' . $product_id);
+		}
+
+		// Trigger action for product sync
+		do_action('bcc_after_product_sync', $product_id, $bcItem);
 
 		return $action;
 	}
@@ -1069,5 +1399,455 @@ class Business_Central_Connector {
     private function update_connection_status($status) {
         $this->settings['connection_status'] = $status;
         update_option('bcc_settings', $this->settings);
+    }
+
+    /**
+     * Enhanced Product Sync with MVP Scope
+     * Syncs products from Business Central to WooCommerce with incremental support
+     */
+    public function ajax_enhanced_product_sync() {
+        check_ajax_referer('bcc_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+        
+        $sync_type = isset($_POST['sync_type']) ? sanitize_text_field($_POST['sync_type']) : 'full';
+        $last_sync_timestamp = isset($_POST['last_sync_timestamp']) ? sanitize_text_field($_POST['last_sync_timestamp']) : '';
+        
+        try {
+            $result = $this->perform_enhanced_product_sync($sync_type, $last_sync_timestamp);
+            wp_send_json_success($result);
+        } catch (Exception $e) {
+            wp_send_json_error('Sync failed: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Perform enhanced product sync with MVP scope
+     */
+    private function perform_enhanced_product_sync($sync_type = 'full', $last_sync_timestamp = '') {
+        try {
+            // Use the clean BCWoo_Sync class
+            $results = BCWoo_Sync::sync_items_with_results($sync_type === 'full');
+            
+            // Update the last sync timestamp for consistency
+            if (!empty($results['sync_timestamp'])) {
+                update_option('bcc_last_product_sync_timestamp', $results['sync_timestamp']);
+            }
+            
+            return $results;
+            
+        } catch (Exception $e) {
+            throw new Exception('Enhanced sync failed: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Upsert product with exact MVP scope mapping
+     */
+    private function upsert_product_with_mvp_scope($bc_item, $bc_client) {
+        // MVP Scope Mapping:
+        // Item number → SKU
+        // Display name → Product name  
+        // Description → Short/long description
+        // Unit price → Regular price
+        // Inventory → manage_stock & stock_quantity
+        // Item category → Woo category
+        // Images (primary + gallery)
+        
+        $sku = isset($bc_item['number']) ? (string) $bc_item['number'] : '';
+        $product_name = isset($bc_item['displayName']) && $bc_item['displayName'] !== '' ? $bc_item['displayName'] : ($sku !== '' ? $sku : 'Product');
+        $description = isset($bc_item['description']) ? $bc_item['description'] : '';
+        $unit_price = isset($bc_item['unitPrice']) ? floatval($bc_item['unitPrice']) : 0.0;
+        $inventory = isset($bc_item['inventory']) ? intval($bc_item['inventory']) : 0;
+        $bc_item_id = isset($bc_item['id']) ? $bc_item['id'] : '';
+        $item_category_id = isset($bc_item['itemCategoryId']) ? $bc_item['itemCategoryId'] : '';
+        $last_modified = isset($bc_item['lastModifiedDateTime']) ? $bc_item['lastModifiedDateTime'] : '';
+        $etag = isset($bc_item['@odata.etag']) ? $bc_item['@odata.etag'] : '';
+        $blocked = isset($bc_item['blocked']) ? (bool) $bc_item['blocked'] : false;
+        
+        // Find existing product by SKU or BC ID
+        $product_id = 0;
+        if ($sku !== '') {
+            $product_id = wc_get_product_id_by_sku($sku);
+        }
+        if (!$product_id && $bc_item_id) {
+            $product_id = $this->get_product_id_by_bc_id($bc_item_id);
+        }
+        
+        $action = 'updated';
+        if (!$product_id) {
+            // Create new product
+            $postarr = array(
+                'post_title' => $product_name,
+                'post_content' => $description,
+                'post_excerpt' => $this->truncate_description($description, 150), // Short description
+                'post_status' => $blocked ? 'draft' : 'publish',
+                'post_type' => 'product'
+            );
+            
+            $product_id = wp_insert_post($postarr, true);
+            if (is_wp_error($product_id)) {
+                throw new Exception('Failed to create product: ' . $product_id->get_error_message());
+            }
+            $action = 'created';
+        }
+        
+        // Ensure product type is simple
+        wp_set_object_terms($product_id, 'simple', 'product_type', false);
+        
+        // Update core product data according to MVP scope
+        $this->update_product_core_data($product_id, array(
+            'sku' => $sku,
+            'name' => $product_name,
+            'description' => $description,
+            'price' => $unit_price,
+            'inventory' => $inventory,
+            'blocked' => $blocked
+        ));
+        
+        // Update Business Central metadata
+        $this->update_product_bc_metadata($product_id, array(
+            'bc_item_id' => $bc_item_id,
+            'bc_item_number' => $sku,
+            'bc_item_etag' => $etag,
+            'bc_item_last_modified' => $last_modified,
+            'bc_item_category_id' => $item_category_id
+        ));
+        
+        // Assign category if available
+        if ($item_category_id) {
+            $this->assign_product_category($product_id, $item_category_id);
+        }
+        
+        // Process images according to MVP scope
+        if (isset($bc_item['picture']) && !empty($bc_item['picture'])) {
+            $this->process_product_images_mvp($product_id, $bc_item['picture'], $bc_item, $bc_client);
+        }
+        
+        // Trigger action for product sync
+        do_action('bcc_after_product_sync_mvp', $product_id, $bc_item);
+        
+        return $action;
+    }
+    
+    /**
+     * Update core product data according to MVP scope
+     */
+    private function update_product_core_data($product_id, $data) {
+        // SKU → SKU
+        if (!empty($data['sku'])) {
+            update_post_meta($product_id, '_sku', $data['sku']);
+        }
+        
+        // Product name → Post title
+        if (!empty($data['name'])) {
+            wp_update_post(array(
+                'ID' => $product_id,
+                'post_title' => $data['name']
+            ));
+        }
+        
+        // Description → Post content and excerpt
+        if (!empty($data['description'])) {
+            wp_update_post(array(
+                'ID' => $product_id,
+                'post_content' => $data['description'],
+                'post_excerpt' => $this->truncate_description($data['description'], 150)
+            ));
+        }
+        
+        // Unit price → Regular price
+        if (isset($data['price']) && $data['price'] > 0) {
+            update_post_meta($product_id, '_regular_price', wc_format_decimal($data['price']));
+            update_post_meta($product_id, '_price', wc_format_decimal($data['price']));
+        }
+        
+        // Inventory → manage_stock & stock_quantity
+        if (isset($data['inventory'])) {
+            if ($data['inventory'] > 0 && !$data['blocked']) {
+                update_post_meta($product_id, '_manage_stock', 'yes');
+                update_post_meta($product_id, '_stock', $data['inventory']);
+                update_post_meta($product_id, '_stock_status', 'instock');
+            } else {
+                update_post_meta($product_id, '_manage_stock', 'no');
+                update_post_meta($product_id, '_stock_status', 'outofstock');
+            }
+        }
+        
+        // Handle blocked status
+        if ($data['blocked']) {
+            update_post_meta($product_id, 'catalog_visibility', 'hidden');
+            wp_update_post(array(
+                'ID' => $product_id,
+                'post_status' => 'draft'
+            ));
+        }
+    }
+    
+    /**
+     * Update Business Central metadata
+     */
+    private function update_product_bc_metadata($product_id, $metadata) {
+        foreach ($metadata as $key => $value) {
+            if ($value !== '') {
+                update_post_meta($product_id, 'business_central_' . $key, $value);
+            }
+        }
+    }
+    
+    /**
+     * Assign product category from Business Central
+     */
+    private function assign_product_category($product_id, $bc_category_id) {
+        $term_id = $this->get_term_id_by_bc_category_id($bc_category_id);
+        if ($term_id) {
+            wp_set_object_terms($product_id, array(intval($term_id)), 'product_cat', false);
+        }
+    }
+    
+    /**
+     * Process product images according to MVP scope
+     */
+    private function process_product_images_mvp($product_id, $picture_data, $bc_item, $bc_client) {
+        if (empty($picture_data)) {
+            return;
+        }
+        
+        try {
+            // Use BCWoo_Client to download the image
+            $media_response = $bc_client->download_picture_stream($picture_data);
+            
+            if (!$media_response) {
+                error_log('[BC MVP Image Sync] ERROR: Could not resolve picture data for product ' . $product_id);
+                return;
+            }
+            
+            // Process the downloaded image
+            $attachment_id = $this->process_downloaded_image($media_response, $product_id);
+            
+            if ($attachment_id && !is_wp_error($attachment_id)) {
+                // Set as featured image
+                $this->set_product_featured_image($product_id, $attachment_id);
+                
+                // Add to product gallery
+                $this->add_to_product_gallery($product_id, $attachment_id);
+                
+                error_log('[BC MVP Image Sync] ✓ Successfully processed image for product ' . $product_id);
+            }
+        } catch (Exception $e) {
+            error_log('[BC MVP Image Sync] ERROR: Failed to process image for product ' . $product_id . ': ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Process downloaded image from BCWoo_Client response
+     */
+    private function process_downloaded_image($media_response, $product_id) {
+        $status_code = wp_remote_retrieve_response_code($media_response);
+        if ($status_code !== 200) {
+            throw new Exception('Image download failed with HTTP ' . $status_code);
+        }
+        
+        $image_data = wp_remote_retrieve_body($media_response);
+        $content_type = wp_remote_retrieve_header($media_response, 'content-type');
+        
+        if (empty($image_data)) {
+            throw new Exception('Downloaded image data is empty');
+        }
+        
+        // Determine file extension
+        $extension = $this->get_extension_from_mime_type($content_type);
+        
+        // Create temporary file
+        $temp_file = wp_tempnam('bc_mvp_image_' . $product_id . '.' . $extension);
+        if (!$temp_file) {
+            throw new Exception('Failed to create temporary file');
+        }
+        
+        // Write image data to temp file
+        $bytes_written = file_put_contents($temp_file, $image_data);
+        if ($bytes_written === false) {
+            @unlink($temp_file);
+            throw new Exception('Failed to write image data to temporary file');
+        }
+        
+        // Prepare file array for WordPress media handling
+        $file_array = array(
+            'name' => 'bc-mvp-product-' . $product_id . '.' . $extension,
+            'type' => $content_type ?: 'image/jpeg',
+            'tmp_name' => $temp_file,
+            'error' => 0,
+            'size' => $bytes_written
+        );
+        
+        // Handle the file upload via WordPress sideload
+        $overrides = array('test_form' => false);
+        $results = wp_handle_sideload($file_array, $overrides);
+        
+        if (isset($results['error'])) {
+            @unlink($temp_file);
+            throw new Exception('File sideload failed: ' . $results['error']);
+        }
+        
+        // Create attachment post
+        $attachment = array(
+            'post_mime_type' => $results['type'],
+            'post_title' => get_the_title($product_id),
+            'post_content' => '',
+            'post_status' => 'inherit'
+        );
+        
+        $attachment_id = wp_insert_attachment($attachment, $results['file'], $product_id);
+        
+        if (is_wp_error($attachment_id)) {
+            throw new Exception('Failed to create attachment: ' . $attachment_id->get_error_message());
+        }
+        
+        // Generate attachment metadata
+        if (!function_exists('wp_generate_attachment_metadata')) {
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+        }
+        
+        $attachment_data = wp_generate_attachment_metadata($attachment_id, $results['file']);
+        if (!is_wp_error($attachment_data)) {
+            wp_update_attachment_metadata($attachment_id, $attachment_data);
+        }
+        
+        return $attachment_id;
+    }
+    
+    /**
+     * Add image to product gallery
+     */
+    private function add_to_product_gallery($product_id, $attachment_id) {
+        $current_gallery = get_post_meta($product_id, '_product_image_gallery', true);
+        $gallery_ids = array();
+        
+        if ($current_gallery) {
+            $gallery_ids = explode(',', $current_gallery);
+        }
+        
+        // Add new image if not already in gallery
+        if (!in_array($attachment_id, $gallery_ids)) {
+            $gallery_ids[] = $attachment_id;
+            update_post_meta($product_id, '_product_image_gallery', implode(',', $gallery_ids));
+        }
+    }
+    
+    /**
+     * Get product ID by Business Central ID
+     */
+    private function get_product_id_by_bc_id($bc_id) {
+        if (!$bc_id) {
+            return 0;
+        }
+        
+        $query = new WP_Query(array(
+            'post_type' => 'product',
+            'posts_per_page' => 1,
+            'fields' => 'ids',
+            'meta_query' => array(
+                array(
+                    'key' => 'business_central_item_id',
+                    'value' => $bc_id,
+                    'compare' => '='
+                )
+            )
+        ));
+        
+        if ($query->have_posts()) {
+            $product_id = intval($query->posts[0]);
+            wp_reset_postdata();
+            return $product_id;
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Truncate description for short description
+     */
+    private function truncate_description($description, $length = 150) {
+        if (strlen($description) <= $length) {
+            return $description;
+        }
+        
+        $truncated = substr($description, 0, $length);
+        $last_space = strrpos($truncated, ' ');
+        
+        if ($last_space !== false) {
+            $truncated = substr($truncated, 0, $last_space);
+        }
+        
+        return $truncated . '...';
+    }
+    
+    /**
+     * Get incremental sync status
+     */
+    public function ajax_get_sync_status() {
+        check_ajax_referer('bcc_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        $last_sync = get_option('bcc_last_product_sync_timestamp', '');
+        $total_products = $this->count_products_with_bc_metadata();
+        
+        wp_send_json_success(array(
+            'last_sync' => $last_sync,
+            'total_products' => $total_products,
+            'next_sync_recommended' => !empty($last_sync) ? 'incremental' : 'full'
+        ));
+    }
+    
+    /**
+     * Count products with Business Central metadata
+     */
+    private function count_products_with_bc_metadata() {
+        $query = new WP_Query(array(
+            'post_type' => 'product',
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'meta_query' => array(
+                array(
+                    'key' => 'business_central_item_id',
+                    'compare' => 'EXISTS'
+                )
+            )
+        ));
+        
+        $count = $query->found_posts;
+        wp_reset_postdata();
+        
+        return $count;
+    }
+
+    /**
+     * Simple sync method using BCWoo_Sync class
+     */
+    public function ajax_simple_sync() {
+        check_ajax_referer('bcc_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die('Unauthorized');
+        }
+        
+        $sync_type = isset($_POST['sync_type']) ? sanitize_text_field($_POST['sync_type']) : 'full';
+        
+        try {
+            if ($sync_type === 'full') {
+                BCWoo_Sync::run_full();
+                wp_send_json_success('Full sync completed successfully');
+            } else {
+                BCWoo_Sync::run_incremental();
+                wp_send_json_success('Incremental sync completed successfully');
+            }
+        } catch (Exception $e) {
+            wp_send_json_error('Sync failed: ' . $e->getMessage());
+        }
     }
 }
